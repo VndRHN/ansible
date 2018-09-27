@@ -163,7 +163,17 @@
 #  creates=/u01/app/grid/12.2.0/gridinfra_1/log/{{ ansible_hostname }}
 
 #- fail:
- 
+
+- name: Register in inventory
+  become: yes
+  become_user: oracle
+  command: >
+    /u01/app/grid/12.2.0/gridinfra_1/oui/bin/runInstaller -silent -ignoreSysPrereqs -attachHome ORACLE_HOME="/u01/app/grid/12.2.0/gridinfra_1" ORACLE_HOME_NAME="GRID_1"
+    register: install_result
+  failed_when: ( install_result.rc not in [ 0, 6, 250 ] )
+
+
+
 - name: post-installation configuration script
   command: >
     /u01/app/oraInventory/orainstRoot.sh
