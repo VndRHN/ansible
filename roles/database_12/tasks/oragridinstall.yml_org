@@ -66,7 +66,7 @@
     - name: oracleasm | partitioneer disk {{ disk_device_prefix }}e
       shell: "(echo n; echo p; echo 1; echo; echo; echo w) | fdisk /dev/{{ disk_device_prefix }}e | tee /tmp/part_{{ disk_device_prefix }}e.log"
 
-    - name: oracleasm | maak disk ASM_DATA0
+    - name: oracleasm | maak disk ASM_0
       command: "/u01/app/grid/12.2.0/gridinfra_1/bin/asmcmd afd_label ASM_LOGS0 /dev/{{ disk_device_prefix }}e1 --init"
       environment:
         ORACLE_HOME: /u01/app/grid/12.2.0/gridinfra_1

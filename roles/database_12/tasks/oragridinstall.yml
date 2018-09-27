@@ -12,41 +12,11 @@
     - /u01/app/oracle
     - /u01/app/oraInventory
 
-#
-##
-#
-#- name: uitpak test
-#  unarchive:
-#    src: /mnt/nfs_autofs/software/oracle/grid_12201/test.zip
-#    dest: /tmp/testdir
-#    copy: no
-#    creates: /tmp/testdir/ora12.yml
-#  become: yes
-#  become_user: oracle
-#
-#
-
-#- fail:
-
-##
-#
 
 
 
 
 
-#
-#
-#    src: /u01/software/oracle/grid_12201/linuxx64_12201_grid_home.zip
-#
-#- name: grid software uitpakken
-#  unarchive:
-#    src: /mnt/nfs_autofs/software/oracle/grid_12201/linuxx64_12201_grid_home.zip
-#    dest: /u01/app/grid/12.2.0/gridinfra_1
-#    copy: no
-#    creates: /u01/app/grid/12.2.0/gridinfra_1/bin/lbuilder
-#  become: yes
-#  become_user: oracle
 - name: grid software uitpakken (marx test)
   unarchive:
     src: /mnt/nfs_autofs/software/oracle/grid_12201/marx.zip
@@ -198,3 +168,10 @@
   shell: >
     {{ grid_home }}/bin/asmca -silent -createDiskGroup -diskGroupName LOGS -disk 'AFD:ASM_LOGS0' -redundancy EXTERNAL -au_size 4 -compatible.asm '12.2.0.1.0' -compatible.rdbms '11.2.0.0.0' | tee {{ grid_home }}/install/asmca_createDiskGroup_LOGS.log
     creates={{ grid_home }}/install/asmca_createDiskGroup_LOGS.log
+
+- name: maak diskgroup DATA
+  become: yes
+  become_user: oracle
+  shell: >
+    {{ grid_home }}/bin/asmca -silent -createDiskGroup -diskGroupName DATA -disk 'AFD:ASM_DATA0' -redundancy EXTERNAL -au_size 4 -compatible.asm '12.2.0.1.0' -compatible.rdbms '11.2.0.0.0' | tee {{ grid_home }}/install/asmca_createDiskGroup_DATA.log
+    creates={{ grid_home }}/install/asmca_createDiskGroup_DATA.log
