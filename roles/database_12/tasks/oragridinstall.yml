@@ -39,9 +39,17 @@
 #
 #    src: /u01/software/oracle/grid_12201/linuxx64_12201_grid_home.zip
 #
-- name: grid software uitpakken
+#- name: grid software uitpakken
+#  unarchive:
+#    src: /mnt/nfs_autofs/software/oracle/grid_12201/linuxx64_12201_grid_home.zip
+#    dest: /u01/app/grid/12.2.0/gridinfra_1
+#    copy: no
+#    creates: /u01/app/grid/12.2.0/gridinfra_1/bin/lbuilder
+#  become: yes
+#  become_user: oracle
+- name: grid software uitpakken (marx test)
   unarchive:
-    src: /mnt/nfs_autofs/software/oracle/grid_12201/linuxx64_12201_grid_home.zip
+    src: /mnt/nfs_autofs/software/oracle/grid_12201/marx.zip
     dest: /u01/app/grid/12.2.0/gridinfra_1
     copy: no
     creates: /u01/app/grid/12.2.0/gridinfra_1/bin/lbuilder
