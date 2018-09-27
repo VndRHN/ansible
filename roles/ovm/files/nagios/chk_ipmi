@@ -1,0 +1,110 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bin:/sbin:/opt/StorMan
+
+rm -f /var/run/check_hw.errtmp /var/run/check_hw.warntmp /var/run/check_hw.oktmp
+
+
+exec 2>> /var/run/check_hw.errtmp
+
+## Check IPMI sensors
+
+
+if [ -f /boot/kernel/ipmi.ko -a -z "`kldstat 2>/dev/null |grep ipmi`" ]
+then
+	kldload ipmi
+fi
+
+if [ -f /proc/modules ]
+then
+	if [ -z "`grep ipmi_si /proc/modules`" ]
+	then
+		modprobe ipmi_devintf
+		modprobe ipmi_si
+	fi
+fi
+
+
+mv /var/db/ipmi-sdr /var/db/ipmi-sdr.0 2>/dev/null
+
+# just "Temp" seems bogus a lot of the time
+# FM..PRS|0 unspeci are for x4170
+if ipmitool sdr | egrep -v '^Temp|^FM..PRS|0 unspeci' >/var/db/ipmi-sdr
+then
+	egrep -v ' (ok|ns)$' /var/db/ipmi-sdr >>/var/run/check_hw.errtmp
+	#egrep ' (cr|nr)$' /var/db/ipmi-sdr >>/var/run/check_hw.errtmp
+	#grep ' nc$' /var/db/ipmi-sdr >>/var/run/check_hw.warntmp
+	echo `grep -c ' ok$' /var/db/ipmi-sdr` sensors OK >>/var/run/check_hw.oktmp
+
+	# check if there are any new "ns" entries
+	grep ' ns$' /var/db/ipmi-sdr >/var/db/ipmi-sdr.ns
+	if [ -s /var/db/ipmi-sdr.ns.0 ]
+	then
+		diff /var/db/ipmi-sdr.ns.0 /var/db/ipmi-sdr.ns |grep '^>' >/var/db/ipmi-sdr.new-ns
+		cat /var/db/ipmi-sdr.new-ns >>/var/run/check_hw.errtmp
+	fi
+	if [ -s /var/db/ipmi-sdr.ns -a ! -s  /var/db/ipmi-sdr.new-ns ]
+	then
+		mv /var/db/ipmi-sdr.ns /var/db/ipmi-sdr.ns.0
+	fi
+else
+	echo NO-IPMI >>/var/run/check_hw.oktmp
+fi
+
+
+
+if [ -c /dev/mpt0 ]
+then
+	raidutil=mptutil
+fi
+if [ -c /dev/mfi0 ]
+then
+	raidutil=mfiutil
+fi
+if [ -n "$raidutil" ]
+then
+	$raidutil show volumes > /var/db/$raidutil.out 2>>/var/run/check_hw.errtmp
+	grep RAID /var/db/$raidutil.out |grep -v OPTIMAL >>/var/run/check_hw.errtmp
+	echo " - $raidutil:" >>/var/run/check_hw.oktmp
+	grep OPTIMAL /var/db/$raidutil.out >>/var/run/check_hw.oktmp
+fi
+
+if grep aacraid /proc/modules >/dev/null 2>&1
+then
+	arcconf GETCONFIG 1 >/var/run/arcconf-1.out
+	/etc/local/chk_arc /var/run/arcconf-1.out |egrep -v 'Optimal|Hot Spare|Online|Ready|Charging' >>/var/run/check_hw.errtmp
+	echo " - Adaptec RAID: `grep -c '^Log.*num' /var/run/arcconf-1.out` Volumes, `grep -c 'Hot Spare' /var/run/arcconf-1.out` hot spares" >>/var/run/check_hw.oktmp
+fi
+
+if grep mptsas /proc/modules >/dev/null 2>&1
+then
+	echo " - mpt:" >>/var/run/check_hw.oktmp
+	mpt-status > /var/run/mptstatus.out
+	grep state /var/run/mptstatus.out |egrep -v "OPTIMAL|ONLINE" >>/var/run/check_hw.errtmp
+	grep vol_id /var/run/mptstatus.out >>/var/run/check_hw.oktmp
+fi
+
+if egrep 'mpt2sas|megaraid' /proc/modules >/dev/null 2>&1
+then
+	if [ -x /usr/local/sbin/sas2ircu ]
+	then
+		echo " - sas2:" >>/var/run/check_hw.oktmp
+		sas2ircu 0 DISPLAY >/var/run/sas2ircu.out
+		egrep " Stat(e|us) " /var/run/sas2ircu.out |egrep -v "Okay|Optimal|Standby" >>/var/run/check_hw.errtmp
+		grep -A3 'Volume ID' /var/run/sas2ircu.out|cut -d: -f2 >>/var/run/check_hw.oktmp
+	else
+		for i in 0 # 1
+		do
+			echo " - megaraid-$i" >>/var/run/check_hw.oktmp
+			MegaCli -LDInfo -L$i -aALL >/var/run/megacli-$i.out
+			grep State /var/run/megacli-$i.out |grep -v Optimal >>/var/run/check_hw.errtmp
+			egrep '^(Siz|Stat)' /var/run/megacli-$i.out |cut -d: -f2 >>/var/run/check_hw.oktmp
+		done
+	fi
+fi
+
+
+# mv /var/run/check_hw.warntmp /var/run/check_hw.warn
+mv /var/run/check_hw.errtmp /var/run/check_hw.err
+mv /var/run/check_hw.oktmp /var/run/check_hw.ok
+

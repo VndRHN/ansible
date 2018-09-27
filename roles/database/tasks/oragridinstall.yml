@@ -1,0 +1,63 @@
+---
+- name: maak directories /u01/app/grid en /u01/app/oracle
+  file: path={{ item }} state=directory mode=0755 owner=oracle group=oinstall
+  with_items:
+    - /u01/app/grid
+    - /u01/app/oracle
+
+- name: install grid software
+  become: yes
+  become_user: oracle
+  command: >
+    {{ installatie_bron }}/oracle/grid_11204/grid/runInstaller -silent -waitforcompletion -force -ignoreSysPrereqs -nowelcome
+      ORACLE_HOSTNAME={{ ansible_hostname }}
+      INVENTORY_LOCATION=/u01/app/oraInventory
+      SELECTED_LANGUAGES=en
+      oracle.install.option=HA_CONFIG
+      ORACLE_BASE=/u01/app/oracle
+      ORACLE_HOME={{ grid_home }}
+      oracle.install.asm.OSDBA=oinstall
+      oracle.install.asm.OSOPER=
+      oracle.install.asm.OSASM=dba
+      oracle.install.asm.SYSASMPassword={{ asm_password }}
+      oracle.install.asm.diskGroup.name=DATA
+      oracle.install.asm.diskGroup.redundancy=EXTERNAL
+      oracle.install.asm.diskGroup.AUSize=4
+      oracle.install.asm.diskGroup.disks=/dev/oracleasm/disks/ASM_DATA0
+      oracle.install.asm.diskGroup.diskDiscoveryString=/dev/oracleasm/disks/*
+      oracle.install.asm.monitorPassword={{ asm_password }}
+      oracle.installer.autoupdates.option=SKIP_UPDATES
+    creates={{ grid_home }}/install/envVars.properties
+  register: install_result
+  failed_when: ( install_result.rc not in [ 0, 6, 250 ] )
+  
+- name: post-installation configuration script
+  command: >
+    /u01/app/oraInventory/orainstRoot.sh
+    creates=/etc/oraInst.loc
+
+- name: configure Oracle Grid Infrastructure for a Standalone Server
+  command: >
+    {{ grid_home }}/root.sh
+    creates={{ grid_home }}/install/root_{{ ansible_hostname }}_*.log
+
+- name: listener maken en starten
+  become: yes
+  become_user: oracle
+  command: >
+    {{ grid_home }}/bin/netca -silent -responsefile {{ grid_home }}/assistants/netca/netca.rsp
+    creates={{ grid_home }}/network/admin/listener.ora
+
+- name: maak asm instance aan en diskgroup DATA
+  become: yes
+  become_user: oracle
+  shell: >
+    {{ grid_home }}/bin/asmca -silent -configureASM -sysAsmPassword {{ asm_password }} -asmsnmpPassword {{ asm_password }} -diskGroupName DATA -diskList '/dev/oracleasm/disks/ASM_DATA0' -redundancy EXTERNAL -au_size 4 -compatible.asm '11.2.0.0.0' -compatible.rdbms '11.2.0.0.0' -diskString '/dev/oracleasm/disks/*' | tee {{ grid_home }}/install/asmca_configureASM_and_createDiskGroup_DATA.log
+    creates={{ grid_home }}/install/asmca_configureASM_and_createDiskGroup_DATA.log
+
+- name: maak diskgroup LOGS
+  become: yes
+  become_user: oracle
+  shell: >
+    {{ grid_home }}/bin/asmca -silent -createDiskGroup -diskGroupName LOGS -diskList '/dev/oracleasm/disks/ASM_LOGS0' -redundancy EXTERNAL -au_size 4 -compatible.asm '11.2.0.0.0' -compatible.rdbms '11.2.0.0.0' -diskString '/dev/oracleasm/disks/*' | tee {{ grid_home }}/install/asmca_createDiskGroup_LOGS.log
+    creates={{ grid_home }}/install/asmca_createDiskGroup_LOGS.log

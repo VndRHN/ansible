@@ -1,0 +1,60 @@
+---
+- name: oracleasm | installeer packages
+  yum: name={{ item }} state=present
+  with_items:
+    - oracle-rdbms-server-11gR2-preinstall
+    - oracleasm-support
+    - kmod-oracleasm
+
+- name: oracleasm | plaats oracleasm config file
+  copy: src=files/oracleasm-_dev_oracleasm dest=/etc/sysconfig/oracleasm
+  register: oracleasm_copy
+
+- name: oracleasm | voer oracleasm configure uit
+  shell: "(echo; echo; echo; echo;) | /etc/init.d/oracleasm configure"
+  when: oracleasm_copy.changed
+
+#
+# Bepaal disk_device_prefix
+#
+
+- name: oracleasm | bepaal disk device prefix
+  set_fact:
+    disk_device_prefix: sd
+  when: ansible_virtualization_type!="xen"
+
+#
+# ASM DATA op disk sdb of xvdb
+#
+
+- name: oracleasm | controleer of er een ASM DATA disk bestaat
+  command: >
+    find /dev/oracleasm/ -name *DATA*
+  register: find_data_result
+  changed_when: False
+
+- block:
+    - name: oracleasm | partitioneer disk {{ disk_device_prefix }}b
+      shell: "(echo n; echo p; echo 1; echo; echo; echo w) | fdisk /dev/{{ disk_device_prefix }}b | tee /tmp/part_{{ disk_device_prefix }}b.log"
+
+    - name: oracleasm | maak disk ASM_DATA0
+      command: "service oracleasm createdisk ASM_DATA0 /dev/{{ disk_device_prefix }}b1"
+  when: ('DATA' not in find_data_result.stdout) and (ansible_devices.{{ disk_device_prefix }}b is defined) and (ansible_devices.{{ disk_device_prefix }}b.partitions.{{ disk_device_prefix }}b1 is not defined)
+
+#
+# ASM LOGS op disk sdc of xvdc
+#
+
+- name: oracleasm | controleer of er een ASM LOGS disk bestaat
+  command: >
+    find /dev/oracleasm/ -name *LOGS*
+  register: find_logs_result
+  changed_when: False
+
+- block:
+    - name: oracleasm | partitioneer disk {{ disk_device_prefix }}c
+      shell: "(echo n; echo p; echo 1; echo; echo; echo w) | fdisk /dev/{{ disk_device_prefix }}c | tee /tmp/part_{{ disk_device_prefix }}c.log"
+
+    - name: oracleasm | maak disk ASM_LOGS0
+      command: "service oracleasm createdisk ASM_LOGS0 /dev/{{ disk_device_prefix }}c1"
+  when: ('LOGS' not in find_logs_result.stdout) and (ansible_devices.{{ disk_device_prefix }}c is defined) and (ansible_devices.{{ disk_device_prefix }}c.partitions.{{ disk_device_prefix }}c1 is not defined)

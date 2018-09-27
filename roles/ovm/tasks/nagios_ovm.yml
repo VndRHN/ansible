@@ -1,0 +1,69 @@
+#
+# Installeer nagios plugins
+#
+- name: kopieer rpm's naar de server
+  copy: src={{ item }} dest=/tmp/
+  with_fileglob:
+    - nagios/rpms/*
+    - nagios/rpms/el6/*
+
+- name: installeer packages
+  yum: name={{ item }} state=present
+  with_items:
+    - /tmp/nagios-common-2.12-10.el5.x86_64.rpm
+    - /tmp/nagios-nrpe-2.14-1.el6.rf.x86_64.rpm
+    - /tmp/nagios-plugins-1.4.15-2.el5.x86_64.rpm
+    - /tmp/nagios-plugins-disk-1.4.15-2.el5.x86_64.rpm
+    - /tmp/nagios-plugins-load-1.4.15-2.el5.x86_64.rpm
+    - /tmp/nagios-plugins-procs-1.4.15-2.el5.x86_64.rpm
+    - /tmp/nagios-plugins-swap-1.4.15-2.el5.x86_64.rpm
+    - /tmp/nagios-plugins-users-1.4.15-2.el5.x86_64.rpm
+
+- name: maak directorie /etc/local
+  file: path=/etc/local state=directory
+
+- name: kopieer check scripts naar de server
+  copy: src={{ item }} dest=/etc/local mode=0755
+  with_fileglob:
+    - nagios/chk_*
+    - nagios/check_*
+    - nagios/run_*
+
+- name: kopieer binaries naar de server
+  copy: src={{ item }} dest=/usr/local/sbin mode=0755
+  with_fileglob:
+    - nagios/bin/*
+
+- name: maak cron job voor chk_ipmi
+  cron: name="nagios chk_ipmi" minute="*/15"
+        job="/etc/local/chk_ipmi >/var/log/chk_ipmi.out 2>&1"
+
+- name: maak cron job voor check_xen
+  cron: name="nagios check_xen" minute="*/5"
+        job="/etc/local/run_jobres /etc/local/check_xen >/dev/null 2>&1"
+
+- name: maak cron job voor check_logfiles_ovm_var_log_messages
+  cron: name="nagios check_logfiles_ovm_var_log_messages" minute="*/5"
+        job="/etc/local/run_jobres /etc/local/check_logfiles_ovm_var_log_messages >/dev/null 2>&1"
+
+- name: voeg ipadres van nagios host toe aan allowed hosts
+  lineinfile: dest=/etc/nagios/nrpe.cfg regexp=^allowed_hosts line=allowed_hosts=127.0.0.1,172.16.3.20
+
+- name: voeg checks toe aan nrpe config
+  blockinfile:
+    dest: /etc/nagios/nrpe.cfg
+    backup: yes
+    block: |
+      command[check_swap]=/usr/lib64/nagios/plugins/check_swap -w 40% -c 25%
+      command[check_disks]=/usr/lib64/nagios/plugins/check_disk -e -w 10% -c 5% -x /boot
+      command[check_hw]=/etc/local/check_hw
+      command[check_xen]=/etc/local/check_jobres check_xen
+      command[check_logfiles_ovm_var_log_messages]=/etc/local/check_jobres check_logfiles_ovm_var_log_messages
+  register: nrpe_cfg_blockinfile
+
+- name: enable en start service nrpe
+  service: name=nrpe enabled=yes state=restarted
+  when: nrpe_cfg_blockinfile.changed
+
+- name: The disk check needs root access for /OVS/Repositories, make it setuid root
+  file: path=/usr/lib64/nagios/plugins/check_disk mode=u+s

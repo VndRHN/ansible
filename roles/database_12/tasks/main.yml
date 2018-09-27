@@ -1,0 +1,5 @@
+---
+# tasks file for database_12
+
+- include_tasks: oragridinstall.yml
+- include_tasks: oradbinstall.yml

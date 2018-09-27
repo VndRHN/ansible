@@ -1,0 +1,12 @@
+---
+# handlers file for weblogic
+
+- name: herstart nodemanager
+  service: name=nodemanager state=restarted
+
+- name: herstart autofs service
+  service: name=autofs state=restarted
+
+- name: reload autofs service
+  service: name=autofs state=reloaded
+

@@ -1,0 +1,30 @@
+---
+# tasks file for etc-hosts
+- name: verwijder hostnaam van 127.0.0.1
+  lineinfile: dest=/etc/hosts regexp='^127\.0\.0\.1' line='127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4' owner=root group=root mode=0644
+
+- name: verwijder hostnaam van ::1
+  lineinfile: dest=/etc/hosts regexp='^::1' line='::1         localhost localhost.localdomain localhost6 localhost6.localdomain6' owner=root group=root mode=0644
+
+- name: verwijder regels met oude hostnaam
+  lineinfile: dest=/etc/hosts state=absent regexp='^{{ ansible_default_ipv4["address"] }} ((?!{{ ansible_hostname }}).)+'
+
+- name: verwijder regels met oud ip-adres
+  lineinfile: dest=/etc/hosts state=absent regexp='^((?!{{ ansible_default_ipv4["address"] }}).)+ {{ ansible_hostname }}'
+
+- name: vraag domain suffix op in resolv.conf
+  command: /bin/awk '/^search/ {print $2}' /etc/resolv.conf
+  register: search_domain
+  ignore_errors: True
+  changed_when: False
+
+#- name: vraag domain suffix op in ifcfg-eth0
+#  debug: msg="User in integration is {{ lookup('ini', 'DOMAIN file=/etc/sysconfig/network-scripts/ifcfg-eth0') }}"
+
+- name: plaats hostname met fqdn in /etc/hosts
+  lineinfile:
+    dest: /etc/hosts
+    line: '{{ ansible_default_ipv4["address"] }} {{ ansible_hostname }}.{{ search_domain.stdout }} {{ ansible_hostname }}'
+    owner: root
+    group: root
+    mode: 0644

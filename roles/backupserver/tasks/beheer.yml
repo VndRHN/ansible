@@ -1,0 +1,38 @@
+---
+- name: maak beheer directory in de homedir van user oracle
+  file: path=/home/oracle/beheer state=directory
+
+- name: maak symbolic link voor de beheer directory
+  file: src=/home/oracle/beheer dest=/beheer state=link
+
+- name: maak directories voor de beheer scripts en logs
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ beheer_scripts_dir }}"
+    - "{{ beheer_log_dir }}"
+
+#
+# beheer scripts plaatsen en bijbehorende cron jobs aanmaken
+#
+
+- name: plaats scripts
+  copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} mode=0755
+  with_items:
+    - tape_backup_links.pl
+    - remove_old_files.sh
+    - systems_for_tape_backup.txt
+
+- name: maak cron job voor remove_old_files
+  cron: 
+    name: opschonen logfiles en tracefiles
+    minute: 0
+    hour: 6
+    job: "{{ beheer_scripts_dir }}/remove_old_files.sh"
+
+- name: maak cron job voor link structuur 
+  cron: 
+    name: links_naar_today_directory 
+    minute: 0
+    hour: 8
+    job: "{{ beheer_scripts_dir }}/tape_backup_links.pl > {{ beheer_log_dir }}/maak_dagelijks_link_structuur.log 2>&1"
+

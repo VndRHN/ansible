@@ -1,0 +1,5 @@
+---
+# vars file for weblogic
+
+beheer_scripts_dir: /beheer/scripts
+beheer_log_dir: /beheer/log

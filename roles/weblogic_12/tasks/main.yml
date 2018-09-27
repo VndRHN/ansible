@@ -1,0 +1,3 @@
+---
+# tasks file for weblogic
+- include_tasks: beheer.yml

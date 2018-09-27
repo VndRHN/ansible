@@ -1,0 +1,150 @@
+---
+# # GI 12
+- name: oracleasm | installeer packages
+  yum: name={{ item }} state=present
+  with_items:
+    - oracle-database-server-12cR2-preinstall
+
+- name: maak directories /u01/app/grid/12.2.0/gridinfra_1 en /u01/app/oracle
+  file: path={{ item }} state=directory mode=0755 owner=oracle group=oinstall
+  with_items:
+    - /u01/app/grid/12.2.0/gridinfra_1
+    - /u01/app/oracle
+
+- fail:
+
+- name: grid software uitpakken
+  unarchive:
+    src: /mnt/nfs_autofs/software/oracle/grid_12201/linuxx64_12201_grid_home.zip
+    dest: /u01/app/grid/12.2.0/gridinfra_1
+    copy: no
+    creates: /u01/app/grid/12.2.0/gridinfra_1/bin/lbuilder
+  become: yes
+  become_user: oracle
+
+#
+# Bepaal disk_device_prefix
+#
+
+- name: oracleasm | bepaal disk device prefix
+  set_fact:
+    disk_device_prefix: sd
+  when: ansible_virtualization_type!="xen"
+
+#
+# ASM DATA op disk sdd of xvdd
+#
+
+- name: oracleasm | controleer of er een ASM DATA disk bestaat
+  command: >
+    find /dev/ -name *DATA*
+  register: find_data_result
+  changed_when: False
+
+- block:
+    - name: oracleasm | partitioneer disk {{ disk_device_prefix }}d
+      shell: "(echo n; echo p; echo 1; echo; echo; echo w) | fdisk /dev/{{ disk_device_prefix }}d | tee /tmp/part_{{ disk_device_prefix }}d.log"
+
+    - name: oracleasm | maak disk ASM_DATA0
+      command: "/u01/app/grid/12.2.0/gridinfra_1/bin/asmcmd afd_label ASM_DATA0 /dev/{{ disk_device_prefix }}d1 --init"
+      environment:
+        ORACLE_HOME: /u01/app/grid/12.2.0/gridinfra_1
+        ORACLE_BASE: /tmp
+  when: ('DATA' not in find_data_result.stdout) and (ansible_devices.{{ disk_device_prefix }}d is defined) and (ansible_devices.{{ disk_device_prefix }}d.partitions.{{ disk_device_prefix }}d1 is not defined)
+
+#
+# ASM LOGS op disk sde of xvde
+#
+
+- name: oracleasm | controleer of er een ASM LOGS disk bestaat
+  command: >
+    find /dev/oracleafd/disks/ -name *LOGS*
+  register: find_logs_result
+  changed_when: False
+
+- block:
+    - name: oracleasm | partitioneer disk {{ disk_device_prefix }}e
+      shell: "(echo n; echo p; echo 1; echo; echo; echo w) | fdisk /dev/{{ disk_device_prefix }}e | tee /tmp/part_{{ disk_device_prefix }}e.log"
+
+    - name: oracleasm | maak disk ASM_DATA0
+      command: "/u01/app/grid/12.2.0/gridinfra_1/bin/asmcmd afd_label ASM_LOGS0 /dev/{{ disk_device_prefix }}e1 --init"
+      environment:
+        ORACLE_HOME: /u01/app/grid/12.2.0/gridinfra_1
+        ORACLE_BASE: /tmp
+  when: ('LOGS' not in find_logs_result.stdout) and (ansible_devices.{{ disk_device_prefix }}e is defined) and (ansible_devices.{{ disk_device_prefix }}e.partitions.{{ disk_device_prefix }}e1 is not defined)
+
+
+- name: maak responsefile aan
+  become: yes
+  become_user: oracle
+  blockinfile:
+    create: yes
+    dest: ~/grid_vnd.rsp
+    backup: yes
+    block: |
+      oracle.install.responseFileVersion=/oracle/install/rspfmt_crsinstall_response_schema_v12.2.0
+      INVENTORY_LOCATION=/u01/app/oraInventory
+      oracle.install.option=HA_CONFIG
+      ORACLE_BASE=/u01/app/grid
+      oracle.install.asm.OSDBA=oinstall
+      oracle.install.asm.OSASM=dba
+      oracle.install.crs.config.ClusterConfiguration=STANDALONE
+      oracle.install.crs.config.configureAsExtendedCluster=false
+      oracle.install.crs.config.gpnp.configureGNS=false
+      oracle.install.crs.config.autoConfigureClusterNodeVIP=false
+      oracle.install.crs.config.gpnp.gnsOption=CREATE_NEW_GNS
+      oracle.install.asm.configureGIMRDataDG=false
+      oracle.install.crs.config.useIPMI=false
+      oracle.install.asm.storageOption=ASM
+      oracle.install.asmOnNAS.configureGIMRDataDG=false
+      oracle.install.asm.SYSASMPassword=AgmM7t6J1CA
+      oracle.install.asm.diskGroup.name=DATA
+      oracle.install.asm.diskGroup.redundancy=EXTERNAL
+      oracle.install.asm.diskGroup.AUSize=4
+      oracle.install.asm.diskGroup.disksWithFailureGroupNames=/dev/sdb1,
+      oracle.install.asm.diskGroup.disks=/dev/sdb1
+      oracle.install.asm.diskGroup.diskDiscoveryString=/dev/sd*
+      oracle.install.asm.monitorPassword=AB3x0mpgX
+      oracle.install.asm.configureAFD=true
+      oracle.install.crs.configureRHPS=false
+      oracle.install.crs.config.ignoreDownNodes=false
+      oracle.install.config.managementOption=NONE
+      oracle.install.config.omsPort=0
+      oracle.install.crs.rootconfig.executeRootScript=false
+
+- name: install grid software
+  become: yes
+  become_user: oracle
+  command: >
+    /u01/app/grid/12.2.0/gridinfra_1/gridSetup.sh -silent -waitforcompletion -ignorePrereqFailure
+      -responseFile ~/grid_vnd.rsp
+  register: install_result
+  failed_when: ( install_result.rc not in [ 0, 6, 250 ] )
+#    creates=/u01/app/grid/12.2.0/gridinfra_1/log/{{ ansible_hostname }}
+
+#- fail:
+ 
+- name: post-installation configuration script
+  command: >
+    /u01/app/oraInventory/orainstRoot.sh
+    creates=/etc/oraInst.loc
+
+- name: configure Oracle Grid Infrastructure for a Standalone Server
+  command: >
+    {{ grid_home }}/root.sh
+    creates={{ grid_home }}/install/root_{{ ansible_hostname }}_*.log
+
+- name: executeConfigTools grid software
+  become: yes
+  become_user: oracle
+  command: >
+    /u01/app/grid/12.2.0/gridinfra_1/gridSetup.sh -silent -executeConfigTools
+      -responseFile ~/grid_vnd.rsp
+    creates={{ grid_home }}/network/admin/listener.ora
+
+- name: maak diskgroup LOGS
+  become: yes
+  become_user: oracle
+  shell: >
+    {{ grid_home }}/bin/asmca -silent -createDiskGroup -diskGroupName LOGS -disk 'AFD:ASM_LOGS0' -redundancy EXTERNAL -au_size 4 -compatible.asm '12.2.0.1.0' -compatible.rdbms '11.2.0.0.0' | tee {{ grid_home }}/install/asmca_createDiskGroup_LOGS.log
+    creates={{ grid_home }}/install/asmca_createDiskGroup_LOGS.log

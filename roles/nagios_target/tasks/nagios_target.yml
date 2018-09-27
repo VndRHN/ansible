@@ -1,0 +1,22 @@
+---
+- name: user nagios aanmaken voor monitoring van de server
+  user: name=nagios uid=2000 group=users home=/home/nagios
+
+- name: voeg public key van nagios toe aan authorized_key file van nagios op de remote host
+  authorized_key: user=nagios state=present key="{{ lookup('file', item) }}"     #"
+  with_items:
+     - files/nagios.pub
+
+- name: maak directorie voor de nagios check plugins
+  file: path={{ nagios_plugins_dir }} state=directory owner=nagios group=users mode=0700
+
+- name: kopieer de plugins naar de plugin directorie in de homedir van user nagios
+  copy: src={{ item }} dest={{ nagios_plugins_dir }} owner=nagios group=users mode="u=rx"
+  with_items:
+    - "files/check_load"
+    - "files/check_ntp"
+    - "files/check_cpu_stats.sh"
+    - "files/spin_forms.pl"
+
+- name: installeer glibc.i686 32-bit library ld-linux.so.2 t.b.v. check_load
+  yum: name=glibc.i686 state=present

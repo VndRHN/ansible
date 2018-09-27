@@ -1,0 +1,7 @@
+---
+- name: scripts voor database servers
+  hosts: database_servers_productie
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - database

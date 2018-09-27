@@ -1,0 +1,31 @@
+---
+- name: scripts voor weblogic servers
+  hosts: oracle_weblogic_servers
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - common
+    - weblogic
+    - nagios_target
+    - atop
+
+  environment:
+    ORACLE_BASE:      /u01/app/oracle
+    JAVA_HOME:        /u01/app/oracle/java
+    WEBLOGIC_HOME:    /u01/app/oracle/middleware/wlserver_10.3
+    ORACLE_HOME:      /u01/app/oracle/middleware/fr_binaries
+    LD_LIBRARY_PATH:  /u01/app/oracle/middleware/fr_binaries/lib
+    ORACLE_INSTANCE:  /u01/app/oracle/middleware/instances/formsreports
+    TNS_ADMIN:        /u01/app/oracle/middleware/instances/formsreports/config
+    ORACLE_DOMAIN:    /u01/app/oracle/middleware/user_projects/domains/frdomain
+
+  tasks:
+    - name: voeg public keys toe aan authorized_key file van root op de remote host
+      authorized_key: user=root state=present key="{{ lookup('file', item) }}"     #"
+      with_fileglob:
+         - public_ssh_keys/*.pub
+
+    - name: voeg public keys toe aan authorized_key file van ora11gas op de remote host
+      authorized_key: user=ora11gas state=present key="{{ lookup('file', item) }}"     #"
+      with_fileglob:
+         - public_ssh_keys/*.pub

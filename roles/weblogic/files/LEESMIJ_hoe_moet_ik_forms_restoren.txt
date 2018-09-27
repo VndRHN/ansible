@@ -1,0 +1,19 @@
+EEN DEEL RESTOREN:
+------------------
+
+Bijvoorbeeld de subdir key2jm:
+- verwijder de applicatie met wldt
+- verwijder de directorie key2jm
+- restore de directorie vanuit de tarball
+
+/u01/app/centric >tar -xvzf /backup/forms/forms_rhn-wls01_week23.tar.gz -C /u01/app/centric/ ./key2jm
+
+
+
+ALLES restoren:
+---------------
+
+Bijvoorbeeld in geval van een nieuwe weblogic installatie
+
+tar -xvzf /backup/forms/forms_rhn-wls01_week23.tar.gz -C /u01/app/centric/
+

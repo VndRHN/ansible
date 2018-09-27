@@ -1,0 +1,4 @@
+---
+# vars file for database
+
+# variabelen staan in defaults/main.yml en kunnen daardoor overruled worden door variabelen in de inventory file, nodig voor variabelen oracle_edition en device_prefix

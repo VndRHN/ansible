@@ -1,0 +1,111 @@
+Oracle Hardware Management Pack can be installed by using the installer or manually using the packages, provided in msi, rpm, pkgadd, and pkg format. Installing Hardware Management Pack using the installer (install.bin in Unix, and install.exe on Windows) makes the installation process easier and faster.
+	
+Manual installation: there are several packages in Hardware Management Pack. ipmitool and ipmiflash can be installed independently. All other components depend on hmp-libs, so hmp-libs must be installed before any other packages. Please see the dependency list below for a list of the prerequisites per package.
+
+The following commands can be used to manually install the packages. 
+	A. Oracle Solaris 10: pkgadd -d <extract dir> <package name> 
+	B. Oracle Solaris 11: pkg install -g <file.p5p> <package name> 
+	C. On Linux: rpm -ivh <package name>.rpm
+	D. On Windows: double click on <package name> msi to install
+
+Consult your operating system's packaging system documentation for more information.
+
+Dependency List: 
+
+# Oracle Solaris 10
+ipmiflash="SUNWcslr SUNWopenssl-libraries SUNWcry SUNWlibmsr SUNWzlib"
+ipmitool="SUNWlibmsr SUNWcslr SUNWopenssl-libraries SUNWcry"
+ORCLhmp-hwmgmt="SUNWcslr SUNWgccruntime SUNWlibmsr SUNWlxml SUNWopenssl-libraries SUNWzlib SUNWcry ORCLhmp-libs"
+ORCLhmp-libs="SUNWcslr SUNWgccruntime SUNWlibmsr SUNWopenssl-libraries SUNWlxml SUNWzlib SUNWcry"
+ORCLhmp-snmp="SUNWlibmsr SUNWcslr SUNWgccruntime ORCLhmp-hwmgmt"
+ORCLhmp-tools="SUNWopenssl-libraries SUNWlxml SUNWlibmsr SUNWcslr SUNWgccruntime SUNWzlib SUNWcry ORCLhmp-libs"
+ORCLhmp-tools-biosconfig="SUNWcsl SUNWcslr SUNWlibmsr"
+ORCLhmp-tools-ubiosconfig=" SUNWlxml SUNWlibmsr SUNWcslr SUNWopenssl-libraries SUNWzlib SUNWcry"
+ORCLhmp-tools-zoningcli="SUNWbcp SUNWcry SUNWcsl SUNWcslr SUNWcsr SUNWdpl SUNWgccruntime SUNWlibms SUNWlibmsr SUNWlxml SUNWopenssl-libraries SUNWzlib"
+ORCLhmp-tools-zoningcli supports only T3-1 server. 
+QConvergeConsoleCLI="SUNWcslr SUNWlibmsr"
+ELXocmcore="SUNWcslr SUNWcfcl SUNWlibmsr"
+
+# Oracle Solaris 11 
+hmp-hwmgmt="hmp-libs gcc-45-runtime"
+hmp-ipmiflash=""
+hmp-ipmitool=""
+hmp-libs=""
+hmp-snmp="hmp-hwmgmt net-snmp gcc-45-runtime"
+hmp-tools="driver/x11/xsvc hmp-libs gcc-45-runtime"
+hmp-tools-zoningcli="hmp-libs gcc-45-runtime"
+hmp-tools-zoningcli supports only T3-1 server. 
+
+# Linux 4
+ipmiflashr="e2fsprogs glibc krb5-libs zlib"
+ipmitool="e2fsprogs glibc krb5-libs ncurses readline zlib"
+mstflint="libgcc glibc libstdc++ zlib"
+oracle-hmp-hwmgmt="glibc libxml2 zlib e2fsprogs libaio krb5-libs net-snmp oracle-hmp-libs"
+oracle-hmp-libs="glibc zlib libaio e2fsprogs krb5-libs libxml2 libgcc libstdc++"
+oracle-hmp-snmp="glibc net-snmp oracle-hmp-hwmgmt"
+oracle-hmp-tools="e2fsprogs glibc libaio krb5-libs libxml2 zlib oracle-hmp-libs"
+oracle-hmp-tools-biosconfig="glibc"
+oracle-hmp-tools-ubiosconfig="e2fsprogs glibc libaio krb5-libs libxml2 zlib oracle-hmp-libs" 
+
+# Linux 5
+elxocmcore="glibc libnl elxocmcore libgcc libhbaapi-devel libstdc++ openssl libselinux libsepol tcp_wrappers bzip2-libs elfutils-libelf net-snmp-libs nspr popt rpm-libs lm_sensors sqlite libsysfs zlib perl e2fsprogs-libs keyutils-libs krb5-libs libsysfs"
+ipmiflash="openssl glibc zlib"
+ipmitool="openssl glibc ncurses readline zlib"
+mstflint="glibc libgcc libstdc++ zlib"
+oracle-hmp-hwmgmt="glibc openssl libaio libxml2 zliboracle-hmp-libs  net-snmp"
+oracle-hmp-libs="glibc zlib libaio openssl libxml2 libgcc libstdc++"
+oracle-hmp-snmp="glibc net-snmp oracle-hmp-hwmgmt"
+oracle-hmp-tools="openssl glibc libaio libxml2 zlib oracle-hmp-libs"
+oracle-hmp-tools-biosconfig="glibc"
+oracle-hmp-tools-ubiosconfig="openssl glibc libaio libxml2 zlib oracle-hmp-libs"
+scli="glibc libhbaapi-devel"
+
+# Linux 6
+elxocmcore="glibc libnl libgcc libhbaapi-devel libstdc++ libacl libattr bzip2-libs libcap db4 nss-softokn-freebl nspr popt libselinux tcp_wrappers-libs zlib openssl elfutils-libelf lua xz-libs net-snmp-libs nss-util rpm-libs lm_sensors-libs perl-libs libsysfs"
+ipmiflash="glibc zlib openssl"
+ipmitool="glibc ncurses-libs readline zlib openssl"
+mstflint="glibc libgcc zlib libstdc++"
+oracle-hmp-hwmgmt="policycoreutils policycoreutils-python glibc zlib libxml2 libaio openssl oracle-hmp-libs"
+oracle-hmp-libs="glibc zlib libaio openssl libxml2 libgcc libstdc++"
+oracle-hmp-snmp="glibc net-snmp oracle-hmp-hwmgmt"
+oracle-hmp-tools="libaio glibc zlib openssl libxml2 oracle-hmp-libs"
+oracle-hmp-tools-biosconfig="glibc"
+oracle-hmp-tools-ubiosconfig="libaio glibc zlib openssl libxml2 oracle-hmp-libs"
+scli="glibc nss-softokn-freebl libhbaapi-devel"
+fma="mcelog OpenIPMI"
+
+# Linux 7
+elxocmcore="glibc libnl libgcc libstdc++ zlib"
+ipmiflash="openssl-libs glibc ncurses-libs readline zlib"
+ipmitool="openssl-libs glibc ncurses-libs readline zlib"
+mstflint="glibc libgcc libstdc++ zlib"
+oracle-hmp-hwmgmt="glibc libaio openssl-libs xz-libs libxml2 zlib libcom_err krb5-libs keyutils-libs net-snmp-libs pcre libselinux oracle-hmp-libs"
+oracle-hmp-libs="glibc libaio openssl-libs xz-libs libxml2 zlib libgcc libstdc++"
+oracle-hmp-snmp="glibc net-snmp oracle-hmp-hwmgmt"
+oracle-hmp-tools="glibc libaio openssl-libs xz-libs libxml2 zlibi oracle-hmp-libs"
+oracle-hmp-tools_biosconfig="libaio openssl-libs glibc xz-libs libxml2 zlib"
+oracle-hmp-tools_ubiosconfig="libaio openssl-libs glibc xz-libs libxml2 zlib oracle-hmp-libs"
+scli="glibc libcom_err nss-softokn-freebl libgcc krb5-libs keyutils-libs xz-libs pcre libselinux libstdc++"
+
+# SUSE Linux Enterprise Server 10
+ipmiflash="glibc openssl"
+ipmitool="glibc ncurses readline openssl"
+oracle-hmp-hwmgmt="glibc zlib libxml2 libaio openssl oracle-hmp-libs"
+oracle-hmp-libs="glibc libaio zlib openssl libxml2 libgcc libstdc++"
+oracle-hmp-snmp="glibc net-snmp oracle-hmp-hwmgmt"
+oracle-hmp-tools="glibc zlib libaio openssl libxml2 oracle-hmp-libs"
+oracle-hmp-tools-biosconfig="glibc"
+oracle-hmp-tools-ubiosconfig="glibc zlib libaio openssl libxml2 oracle-hmp-libs"
+scli="glibc-32bit"
+
+# SUSE Linux Enterprise Server 11 
+ipmiflash="glibc zlib libopenssl0_9_8"
+ipmitool="glibc libncurses5 libreadline5 zlib libopenssl0_9_8"
+oracle-hmp-hwmgmt="glibc zlib libxml2 libaio libopenssl0_9_8 oracle-hmp-libs"
+oracle-hmp-libs="glibc libaio zlib libopenssl0_9_8 libxml2 libgcc43 libstdc++43"
+oracle-hmp-snmp="glibc net-snmp oracle-hmp-hwmgmt"
+oracle-hmp-tools="libaio glibc zlib libopenssl0_9_8 libxml2 oracle-hmp-libs"
+oracle-hmp-tools-biosconfig="glibc"
+oracle-hmp-tools-ubiosconfig="libaio glibc zlib libopenssl0_9_8 libxml2 oracle-hmp-libs"
+scli="glibc-32bit"
+

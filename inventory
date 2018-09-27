@@ -1,0 +1,100 @@
+[all:vars]
+# servers toevoegen in permissielijst op server NT71
+# nfs_device_software=172.16.2.72:/NFS/software
+# nfs_device_backup=172.16.2.72:/NFS/backup
+nfs_device_software=172.16.6.60:/volumes/data/nfs/software
+nfs_device_backup=172.16.6.60:/volumes/data/nfs/oracle_backup
+ntp_server1=172.16.3.21
+ntp_server2=172.16.3.22
+
+[backup_servers]
+vnd-rman ansible_ssh_host=172.16.3.6
+
+[ovm_manager_servers]
+lx60 ansible_ssh_host=172.16.3.60 ansible_python_interpreter=/usr/bin/python26
+rhn-ovmmgr ansible_ssh_host=172.16.3.80 ansible_python_interpreter=/usr/bin/python26
+
+[ovm_servers]
+ovm11 ansible_ssh_host=172.16.5.211
+ovm12 ansible_ssh_host=172.16.5.212
+ovm13 ansible_ssh_host=172.16.5.213
+ovm14 ansible_ssh_host=172.16.5.214
+ovm21 ansible_ssh_host=172.16.5.221
+ovm22 ansible_ssh_host=172.16.5.222
+ovm23 ansible_ssh_host=172.16.5.223
+ovm24 ansible_ssh_host=172.16.5.224
+
+[oracle_weblogic_servers]
+rhn-wls01 ansible_ssh_host=192.168.10.176
+rwd-wls01 ansible_ssh_host=172.16.3.14
+spz-wls01 ansible_ssh_host=172.21.0.20
+vnd-wls01 ansible_ssh_host=172.16.3.77
+vnd-wls02 ansible_ssh_host=172.16.3.78
+wdb-wls01 ansible_ssh_host=172.22.0.21
+
+[oracle_webtier_servers]
+lx75 ansible_ssh_host=172.16.3.75 ansible_python_interpreter=/usr/bin/python26
+rhn-webtier ansible_ssh_host=192.168.10.192
+
+[oracle_database_servers:children]
+database_servers_productie
+database_servers_test
+
+[database_servers_productie]
+oem ansible_ssh_host=192.168.10.22 oracle_edition=EE database_home=/u01/app/oracle/product/11.2.0/dbhome_1
+rhn-db04 ansible_ssh_host=192.168.10.12 oracle_edition=EE oracle_version=11203
+rhn-db06 ansible_ssh_host=192.168.10.128
+rwd-db04 ansible_ssh_host=172.16.3.94 oracle_edition=EE
+rwd-db06 ansible_ssh_host=172.16.3.96
+spz-db06 ansible_ssh_host=172.21.0.26 oracle_edition=SE
+vnd-db04 ansible_ssh_host=172.16.3.44 oracle_edition=EE oracle_version=11203
+vnd-db06 ansible_ssh_host=172.16.3.46
+vnd-db08 ansible_ssh_host=172.16.3.48
+wdb-db06 ansible_ssh_host=172.22.0.26 oracle_edition=SE
+#
+
+[centric_machines]
+rhn-db03 ansible_ssh_host=192.168.10.188
+rhn-db04 ansible_ssh_host=192.168.10.12
+rwd-db03 ansible_ssh_host=172.16.3.93
+rwd-db04 ansible_ssh_host=172.16.3.94
+vnd-db03 ansible_ssh_host=172.16.3.65
+vnd-db04 ansible_ssh_host=172.16.3.44
+wdb-db05 ansible_ssh_host=172.22.0.25
+wdb-db06 ansible_ssh_host=172.22.0.26
+spz-db05 ansible_ssh_host=172.21.0.25
+spz-db06 ansible_ssh_host=172.21.0.26
+
+
+[database_servers_test]
+rhn-db03 ansible_ssh_host=192.168.10.188 oracle_edition=EE oracle_version=11203
+rhn-db05 ansible_ssh_host=192.168.10.104
+rwd-db03 ansible_ssh_host=172.16.3.93 oracle_edition=EE
+rwd-db05 ansible_ssh_host=172.16.3.95
+spz-db05 ansible_ssh_host=172.21.0.25 oracle_edition=SE database_home=/u01/app/oracle/product/11.2.0/dbhome_2
+vnd-db03 ansible_ssh_host=172.16.3.65 oracle_edition=EE oracle_version=11203
+vnd-db05 ansible_ssh_host=172.16.3.45
+vnd-db07 ansible_ssh_host=172.16.3.47
+wdb-db05 ansible_ssh_host=172.22.0.25 oracle_edition=SE
+
+[diagnostic_tuning_pack]
+rhn-db03
+rhn-db04
+vnd-db03
+vnd-db04
+
+[mozard_verseon_oracle-text]
+rhn-db05
+rhn-db06
+rwd-db03
+rwd-db04
+spz-db05
+spz-db06
+vnd-db03
+vnd-db04
+
+[db12]
+# vnd-12 ansible_ssh_host=172.16.40.115
+#vnd-db11 ansible_ssh_host=172.16.3.42
+vnd-db17 ansible_ssh_host=172.16.3.157
+#vnd-db13 ansible_ssh_host=172.16.3.153 oracle_edition=EE

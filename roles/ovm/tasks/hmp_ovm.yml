@@ -1,0 +1,26 @@
+#
+# Installeer Oracle-Hardware-Management-Pack
+#
+- name: kopieer rpm's naar de server
+  copy: src={{ item }} dest=/tmp/
+  with_fileglob:
+    - oracle-hmp-2.3.7.0/packages/*
+
+- name: installeer packages
+  yum: name={{ item }} state=present
+  with_items:
+    - /tmp/oracle-hmp-libs-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/oracle-hmp-hwmgmt-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/oracle-hmp-snmp-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/oracle-hmp-tools-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/oracle-hmp-tools-biosconfig-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/oracle-hmp-tools-ubiosconfig-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/oracle-hmp-wdt-2.3.7.0-1.el6.x86_64.rpm
+    - /tmp/ipmiflash-1.8.12.4-0.el6.x86_64.rpm
+
+- name: enable en start service hwmgmtd
+  service: name=hwmgmtd enabled=yes state=started
+
+- name: enable en start service snmpd
+  service: name=snmpd enabled=yes state=started
+  

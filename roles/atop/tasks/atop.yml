@@ -1,0 +1,10 @@
+---
+#
+# Installeer atop performance monitor voor linux - http://atoptool.nl/
+#
+
+- name: installeer package atop
+  yum:
+     name: /mnt/nfs_autofs/software/linux/atop-2.2-3.sysv.x86_64.rpm
+     state: present
+  when: ansible_distribution_major_version =="6"

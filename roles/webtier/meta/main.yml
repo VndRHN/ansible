@@ -1,0 +1,7 @@
+---
+dependencies:
+    - { role: etc-hosts }
+    - { role: ntp, ntpserver1: "{{ ntp_server1 }}", ntpserver2: "{{ ntp_server2 }}" }
+    - { role: autofs_nfs, map: {mntpoint: "software", options: "-rw,bg,soft,nointr,rsize=32768,wsize=32768,tcp,actimeo=0,nfsvers=3,timeo=600", device: "{{ nfs_device_software }}"} }
+    # Oracle verwacht een NFS mount met de opties: rsize>=32768,wsize>=32768,hard
+    - { role: autofs_nfs, map: {mntpoint: "backup",   options: "-rw,bg,hard,nointr,rsize=32768,wsize=32768,tcp,actimeo=0,nfsvers=3,timeo=600", device: "{{ nfs_device_backup }}"} }

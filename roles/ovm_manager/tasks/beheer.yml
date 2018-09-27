@@ -1,0 +1,60 @@
+---
+- name: maak directory met hostname op de backuptarget
+  file: path=/mnt/nfs_autofs/backup/{{ ansible_hostname }} state=directory owner=oracle group=dba mode=0755
+
+- name: maak symbolic link voor backup directory
+  file: src=/mnt/nfs_autofs/backup/{{ ansible_hostname }} dest=/backup state=link owner=oracle group=dba
+
+- name: maak directories voor de backups
+  file: path={{ item }} state=directory owner=oracle group=dba mode=0755
+  with_items:
+    - "/backup/dbbackup"
+    - "/backup/ovm_export_db"
+
+- name: maak beheer directory in de homedir van user oracle
+  file: path=/home/oracle/beheer state=directory owner=oracle group=dba mode=0755
+
+- name: maak symbolic link voor de beheer directory
+  file: src=/home/oracle/beheer dest=/beheer state=link owner=oracle group=dba
+
+- name: maak directories voor de beheer scripts en logs
+  file: path={{ item }} state=directory owner=oracle group=dba mode=0755
+  with_items:
+    - "{{ beheer_scripts_dir }}"
+    - "{{ beheer_log_dir }}"
+
+- name: vul bash_profile aan van user oracle
+  become: yes
+  become_user: oracle
+  blockinfile:
+    dest: ~/.bash_profile
+    backup: yes
+    block: |
+      export PATH=$PATH:/beheer/scripts
+      export so=/beheer/scripts
+
+#
+# beheer scripts plaatsen en bijbehorende cron jobs aanmaken
+#
+
+- name: plaats scripts
+  copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=dba mode=0755
+  with_items:
+    - remove_old_files.sh
+    - ovm_export_db.sh
+
+- name: maak cron job voor remove_old_files
+  cron: 
+    name: opschonen logfiles en tracefiles
+    minute: 0
+    hour: 6
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/remove_old_files.sh"
+
+- name: maak cron job voor ovm_export_db
+  cron: 
+    name: export ovm database met TAR
+    minute: 0
+    hour: 23
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/ovm_export_db.sh > /backup/ovm_export_db/ovm_export_db_`date -I`.log 2>&1"

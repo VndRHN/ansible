@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+/u01/app/oracle/diag/tnslsnr/{{ ansible_hostname }}/listener/trace/listener.log {
+weekly
+copytruncate
+rotate 4
+compress
+}
+

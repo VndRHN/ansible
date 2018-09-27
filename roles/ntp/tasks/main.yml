@@ -1,0 +1,20 @@
+---
+# tasks file for ntp
+- name: installeer ntp
+  yum: name=ntp state=installed
+  when: ansible_distribution_major_version >="6"
+  
+- name: enable ntp service
+  service: name=ntpd enabled=yes
+
+- name: plaats slewing optie -x in sysconfig/ntpd
+  replace: dest=/etc/sysconfig/ntpd regexp='OPTIONS="-u' replace='OPTIONS="-x -u' backup=yes
+# If the -x option is included on the command line, the clock will never be stepped and only slew corrections will be used.
+
+- name: plaats ntp.conf
+  template: src=ntp.conf.j2 dest=/etc/ntp.conf
+  register: ntp_conf_changed
+
+- name: herstart ntp service
+  service: name=ntpd state=restarted
+  when: ntp_conf_changed.changed==true

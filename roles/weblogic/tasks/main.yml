@@ -1,0 +1,4 @@
+---
+# tasks file for weblogic
+- include_tasks: orawlsinstall.yml
+- include_tasks: beheer.yml

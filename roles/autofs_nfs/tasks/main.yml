@@ -1,0 +1,63 @@
+---
+# tasks file for autofs_nfs
+- name: installeer nfs client packages nfs-utils
+  yum: name=nfs-utils state=present
+  when: ansible_distribution_major_version >="6"
+
+- name: start service rpcbind
+  service: name=rpcbind state=started
+  when: ansible_distribution_major_version =="6"
+
+- name: installeer autofs
+  yum: name=autofs state=present
+  when: ansible_distribution_major_version >="6"
+  
+- name: maak directory/mountpoint voor nfs mounts
+  file: path=/mnt/nfs_autofs state=directory
+
+- name: pas auto.master aan, misc uitcommentarieren
+  lineinfile: 
+    dest=/etc/auto.master
+    regexp='^/misc' backrefs=yes
+    line='# /misc'
+
+- name: pas auto.master aan, net uitcommentarieren
+  lineinfile: 
+    dest=/etc/auto.master
+    state=present
+    regexp='^/net' backrefs=yes
+    line='# /net'
+
+- name: pas auto.master aan, +auto.master uitcommentarieren
+  lineinfile:
+    dest=/etc/auto.master
+    regexp='^\+auto.master' backrefs=yes
+    line='# +auto.master'
+
+- name: voeg verwijzing naar auto.nfs toe in auto.master
+  lineinfile:
+    dest=/etc/auto.master
+    state=present
+    line='/mnt/nfs_autofs /etc/auto.nfs --timeout=600 --ghost'
+  register: auto_master_lineinfile
+
+- name: herstart autofs service
+  service: name=autofs state=restarted
+  when: auto_master_lineinfile.changed
+
+- name: voeg nfs config toe aan auto.nfs file
+  lineinfile:
+    dest=/etc/auto.nfs
+    create=yes
+    state=present
+    line="{{ item.mntpoint }} {{ item.options }} {{ item.device }}"
+    regexp="^{{ item.mntpoint }} "
+  with_items:
+    - "{{ map }}"
+  register: auto_nfs_lineinfile
+
+- name: reload autofs service
+  service: name=autofs state=reloaded
+  when: auto_nfs_lineinfile.changed
+
+

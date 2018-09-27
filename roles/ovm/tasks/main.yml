@@ -1,0 +1,5 @@
+---
+# tasks file for ovm
+- include_tasks: hmp_ovm.yml
+- include_tasks: beheer.yml
+- include_tasks: nagios_ovm.yml

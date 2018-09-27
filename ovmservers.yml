@@ -1,0 +1,13 @@
+---
+- name: scripts voor ovm servers
+  hosts: ovm_servers
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - ovm
+
+  tasks:
+    - name: voeg public keys toe aan authorized_key file van root op de remote host
+      authorized_key: user=root state=present key="{{ lookup('file', item) }}"     #"
+      with_fileglob:
+         - public_ssh_keys/*.pub

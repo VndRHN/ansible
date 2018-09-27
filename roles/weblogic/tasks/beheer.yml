@@ -1,0 +1,71 @@
+---
+#
+# wachtwoorden wijzigen van linux users
+#
+- name: wachtwoord wijzigen van user root
+  user: name=root password="$6$M/CezeLX$/31jf.w.jBr/ssSBuOvat1VCwUZd8yRKi6INQJzulXa3/OE4d/17tRYabmSLkB5Ykoisgpbt8TR8Vnnbodq7w."
+
+- name: wachtwoord wijzigen van user ora11gas
+  user: name=ora11gas password="$6$fZ0ixwOc$2Z1vuxB3uhgOY/g6a.0.Y5cmMkJmc75w7RaD/YlpJIOvhzzMEAuCQiQFsFlWmF.prYse/UsGXasg9re2ooWmK0"
+
+#
+# backup en beheer directories aanmaken
+#
+
+- name: maak directory met hostname op de backuptarget
+  file: path=/mnt/nfs_autofs/backup/{{ ansible_hostname }} state=directory owner=ora11gas group=dba mode=0755
+
+- name: maak symbolic link voor backup directory
+  file: src=/mnt/nfs_autofs/backup/{{ ansible_hostname }} dest=/backup state=link owner=ora11gas group=dba
+
+- name: maak directories voor de backups
+  file: path={{ item }} state=directory owner=ora11gas group=dba mode=0755
+  with_items:
+    - "/backup/forms"
+    - "/backup/tnsnames"
+
+- name: plaats restore werkinstructie
+  copy: src=files/{{ item }} dest=/backup/forms/{{ item }} owner=ora11gas group=dba mode=0600
+  with_items:
+    - LEESMIJ_hoe_moet_ik_forms_restoren.txt
+
+- name: maak beheer directory in de homedir van user ora11gas
+  file: path=/home/ora11gas/beheer state=directory owner=ora11gas group=dba mode=0755
+
+- name: maak symbolic link voor de beheer directory
+  file: src=/home/ora11gas/beheer dest=/beheer state=link owner=ora11gas group=dba
+
+- name: maak directories voor de beheer scripts en logs
+  file: path={{ item }} state=directory owner=ora11gas group=dba mode=0755
+  with_items:
+    - "{{ beheer_scripts_dir }}"
+    - "{{ beheer_log_dir }}"
+
+- name: vul bash_profile aan van user ora11gas
+  become: yes
+  become_user: ora11gas
+  blockinfile:
+    dest: ~/.bash_profile
+    backup: yes
+    block: |
+      export PATH=$PATH:/beheer/scripts
+      export so=/beheer/scripts
+
+#
+# beheer scripts plaatsen en bijbehorende cron jobs aanmaken
+#
+
+- name: plaats scripts
+  copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=ora11gas group=dba mode=0700
+  with_items:
+    - remove_old_files.sh
+    - backup_centric_forms.sh
+    - formsweb_restrictedURLparams.sh
+
+- name: maak cron job voor backup_centric_forms
+  cron: name="alle centric forms backuppen met TAR" minute="00" hour="23"
+        job="su - ora11gas -c '{{ beheer_scripts_dir }}/backup_centric_forms.sh > {{ beheer_log_dir }}/backup_centric_forms.log 2>&1'"
+
+- name: maak cron job voor remove_old_files
+  cron: name="opschonen logfiles en tracefiles" minute="0" hour="2" 
+        job="su - ora11gas -c '{{ beheer_scripts_dir }}/remove_old_files.sh'"

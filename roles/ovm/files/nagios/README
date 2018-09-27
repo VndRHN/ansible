@@ -1,0 +1,82 @@
+
+
+Log in on OVM server, unpack nagios_ovm.tar.gz with scripts and rpms
+
+	tar xzf nagios_ovm.tgz
+	cd nagios
+
+
+On a OVM 3 server, install packages from "rpms" directory:
+
+	EL=`uname -a |grep -o 'el[56]'`
+	for i in rpms/n* rpms/$EL/* ; do rpm -i $i ;done
+
+
+Create directory /etc/local, copy scripts to /etc/local
+Copy RAID utilities to /usr/local/sbin:
+	
+	mkdir /etc/local
+	cp -p chk_* check_* run_* /etc/local
+	cp bin/* /usr/local/sbin
+
+
+Test the scripts:
+
+	/etc/local/chk_ipmi
+	/etc/local/check_hw
+
+The first script does the actual work and must be run as root, the second
+only displays the result and can be run as nagios user.  The result of the
+sensors is stored in the file: /var/db/ipmi-sdr, check if it looks OK:
+
+	cat /var/db/ipmi-sdr
+
+
+Add the following entries to crontab for the chk_ipmi script:
+
+	*/15 * * * * /etc/local/chk_ipmi >/var/log/chk_ipmi.out 2>&1
+	*/5 * * * * /etc/local/run_jobres /etc/local/check_xen >/dev/null 2>&1
+
+
+edit /etc/nagios/nrpe.cfg : add nagios server IP to list of allowed_hosts
+
+add the following lines:
+
+	command[check_swap]=/usr/lib64/nagios/plugins/check_swap -w 40% -c 25%
+	command[check_disks]=/usr/lib64/nagios/plugins/check_disk -e -w 20% -c 10% -x /boot
+	command[check_hw]=/etc/local/check_hw
+	command[check_xen]=/etc/local/check_jobres check_xen
+
+
+(optionally modify the parameters)
+
+
+edit /etc/sysconfig/iptables copy tcp line (e.g. port 80 or 7777) and change port to 5666
+
+
+The disk check needs root access for /OVS/Repositories, make it setuid root:
+
+	chmod u+s /usr/lib64/nagios/plugins/check_disk
+
+
+enable and start nrpe daemon:
+
+	chkconfig nrpe on
+	service nrpe start
+
+
+Set up the nagios config, the file "ovm.cfg" can be used as example, this config has
+two hostgroups: ovm-servers and linux-nrpe, the linux-nrpe group can be used on both
+hardware hosts and guest VMs, ovm-servers is only needed on physical hardware.
+
+On the nagios server you will need the check_nrpe plugin:
+
+on Ubuntu / Debian:
+
+	apt-get install nagios-nrpe-plugin
+
+or on RedHat, Centos etc:
+
+	yum install nagios-plugins-nrpe
+
+

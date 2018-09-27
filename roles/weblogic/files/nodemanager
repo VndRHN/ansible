@@ -1,0 +1,108 @@
+#!/bin/sh
+# 
+# chkconfig: 345 90 10
+#
+# /etc/init.d/nodemanager
+#
+# The next lines are for chkconfig on SuSE systems.
+### BEGIN INIT INFO
+# Provides: nodemanager
+# Required-Start: $network $remote_fs $namedc
+# Required-Stop:
+# Default-Start: 3 4 5
+# Default-Stop: 0 2 6
+# Description: Oracle Weblogic nodemanager start/stop script \
+### END INIT INFO
+#              Centric IT Solutions
+#
+# 20160526 GP - status optie toegevoegd zodat ansible kan bepalen of de service draait
+
+
+
+RETVAL=0
+
+umask 022
+
+ORACLE_BASE=/u01/app/oracle
+
+is_nodemgr_running() {
+    local nodemgr_cnt=`ps -ef        | \
+        grep -i 'ora11gas'         | \
+        grep -i 'java '              | \
+        grep -i ' weblogic.NodeManager '  | \
+        grep -v grep                 | \
+        wc -l`
+    echo $nodemgr_cnt
+}
+
+get_nodemgr_pid() {
+    nodemgr_pid=0
+    if [ `is_nodemgr_running` -eq 1 ]; then
+        nodemgr_pid=`ps -ef             | \
+            grep -i 'ora11gas'        | \
+            grep -i 'java '             | \
+            grep -i ' weblogic.NodeManager ' | \
+            grep -v grep                 | \
+            tr -s ' '                    | \
+            cut -d' ' -f2`
+    fi
+    echo $nodemgr_pid
+}
+
+
+start() {
+ 	echo -n $"Starting the ORACLE Application Server: "
+	echo
+		# first start opmn then start nodemanager it should start all WLS processes that where active before last stop
+        su - ora11gas -c "opmnctl startall
+        nohup $ORACLE_BASE/middleware/wlserver_10.3/server/bin/startNodeManager.sh >/dev/null 2>&1 &"
+		touch /var/lock/subsys/nodemanager
+	return $RETVAL
+}	
+stop() {
+ 	echo -n $"Stopping the ORACLE Application Server: "
+	echo
+        su - ora11gas -c "opmnctl stopall"
+        # first kill nodemanager then remove all weblogic processes of the user
+        kill -s 9 `get_nodemgr_pid` &> /dev/null
+        ps -ef|grep 'ora11gas'|grep 'Dweblogic.nodemanager.javaHome'|grep -v grep |awk '{print "kill -9 " $2}'|bash
+        ps -ef|grep 'ora11gas'|grep 'Dweblogic.Name='|grep -v grep |awk '{print "kill -9 " $2}'|bash
+		rm -f /var/lock/subsys/nodemanager
+	return $RETVAL
+}
+restart() {
+	stop
+	start
+}	
+status() {
+    printf "%-50s" "Checking nodemanager..."
+    if [ -f /var/lock/subsys/nodemanager ]; then
+        echo "Running"
+    else
+        printf "%s\n" "Service not running"
+        exit 3 
+    fi
+}
+
+
+
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart|reload)
+  	restart
+	;;
+  status)
+  	status
+	;;
+   *)
+	echo "Usage: $0 {start|stop|restart|status}"
+	exit 1
+esac
+
+exit $?
+

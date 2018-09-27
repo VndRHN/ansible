@@ -1,0 +1,3 @@
+---
+# vars file for nagios_target
+nagios_plugins_dir: /home/nagios/plugins

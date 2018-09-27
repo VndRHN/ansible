@@ -1,0 +1,16 @@
+---
+- name: pas bash prompt aan zodat volledig path wordt getoond en prompt van user root wordt rood
+  blockinfile:
+    dest: /etc/bashrc
+    backup: yes
+    block: |
+      # are we an interactive shell?
+      if [ "$PS1" ]; then
+          # If id command returns zero, you have root access.
+          if [ $(id -u) -eq 0 ];
+          then # you are root, set red colour prompt
+              PS1="\\[$(tput bold)\\]\\[$(tput setaf 1)\\]\\h:\\w # \\[$(tput sgr0)\\]"
+          else # normal
+              PS1="\\u@\\h:\\w $ "
+          fi
+      fi

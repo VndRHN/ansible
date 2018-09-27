@@ -1,0 +1,8 @@
+---
+# tasks file for database
+- include_tasks: oraasminstall.yml
+  when: ansible_hostname != "oem"
+- include_tasks: oragridinstall.yml
+  when: ansible_hostname != "oem"
+- include_tasks: beheer.yml 
+- include_tasks: oradbinstall.yml

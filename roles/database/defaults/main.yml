@@ -1,0 +1,21 @@
+---
+# defaults file for database
+
+installatie_bron: /mnt/nfs_autofs/software
+
+asm_password: Oracle_11
+grid_home: /u01/app/grid/11.2.0/gridinfra_1
+database_home: /u01/app/oracle/product/11.2.0/dbhome_1
+
+beheer_scripts_dir: /beheer/scripts
+beheer_log_dir: /beheer/log
+beheer_password_dir: /beheer/passwords
+
+# in de inventory file kan variabele oracle_version=11203 worden opgenomen, die krijgt dan voorrang op de role default variabele waarde 11204
+oracle_version: 11204
+
+# in de inventory file kan variabele oracle_edition=EE worden opgenomen, die krijgt dan voorrang op de role default variabele waarde SEONE
+oracle_edition: SEONE
+
+# in de oraasminstall.yml file wordt deze variabele vervangen door sd indien ansible_virtualization_type ongelijk is aan "xen"
+disk_device_prefix: xvd

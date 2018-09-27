@@ -1,0 +1,8 @@
+---
+- name: installatie van database 12 servers
+  hosts: db12
+  remote_user: root
+  gather_facts: yes
+
+  roles:
+    - database_12

@@ -1,0 +1,11 @@
+---
+#
+# beheer scripts plaatsen
+#
+- name: plaats scripts
+  copy: src={{ item }} dest=/usr/local/bin/{{ item }} owner=root group=root mode=0700
+  with_items:
+    - vdlist
+    - vmlist
+    - xmlist
+    - xmvcpu-list

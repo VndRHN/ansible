@@ -1,0 +1,4 @@
+---
+# defaults file for ntp
+ntp_server1: 172.16.3.21
+ntp_server2: 172.16.3.22

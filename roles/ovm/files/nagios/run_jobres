@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# script should be run from cron to execute a nagios plugin as root
+# result can be displayed with check_jobres as nagios user.
+#
+# Advantages over running script directly:
+#   - run script as root without sudo
+#   - icinga or nagios does not have to wait until script completes
+#   - no process build-up if script hangs
+#
+# example crontab entry:
+#
+#  */5 * * * * /etc/local/run_jobres /etc/local/check_xen >/dev/null 2>&1
+#
+# example nrpe.cfg:
+#
+#  command[check_xen]=/etc/local/check_jobres check_xen
+#
+#
+# NOTE: script options must be in crontab
+#
+
+
+script=$1
+shift
+
+case $script in
+	/*) ;;
+	*) echo usage: $0 SCRIPT_PATH ; exit 1 ;;
+esac
+
+name=`basename $script`
+
+NAME=`echo $name |tr a-z A-Z`
+
+if [ ! -x $script ]
+then
+	echo "$NAME UNKNOWN - script $script not found" >/var/run/jobr-$name.out
+	echo 3 >/var/run/jobr-$name.res
+	exit 0
+fi
+
+if [ -f /var/run/jobr-$name.pid ]
+then
+	if kill -0 `cat /var/run/jobr-$name.pid` 2>/dev/null
+	then
+		echo "$NAME CRITICAL - script $script not finished" >/var/run/jobr-$name.out
+		echo 2 >/var/run/jobr-$name.res
+		exit 0
+	fi
+fi
+
+echo $$ >/var/run/jobr-$name.pid
+
+$script "$@" >/var/run/jobr-$name.tmp 2>&1
+res=$?
+
+mv /var/run/jobr-$name.tmp /var/run/jobr-$name.out
+echo $res >/var/run/jobr-$name.res
+
+rm -f /var/run/jobr-$name.pid
+
+exit 0

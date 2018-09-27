@@ -1,0 +1,3 @@
+---
+- name: verander commentaar kleur in vi naar lichtblauw
+  lineinfile: dest=/etc/vimrc line=":highlight Comment ctermfg=blue"

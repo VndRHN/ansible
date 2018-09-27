@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+
+while (<>) {
+	if (/^\s*(Device #\d+|Logical device number \d+|Controller Battery|Controller info)/i) {
+		$what = $1;
+	}
+	if (/(?:Status|^\s+State) .* : (.*)/) {
+		printf "%s: %s\n", $what, $1;
+	}
+}
+

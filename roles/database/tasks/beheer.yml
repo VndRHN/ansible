@@ -1,0 +1,333 @@
+---
+#
+# wachtwoorden wijzigen van linux users
+#
+- name: wachtwoord wijzigen van user root
+  user: name=root password="$6$M/CezeLX$/31jf.w.jBr/ssSBuOvat1VCwUZd8yRKi6INQJzulXa3/OE4d/17tRYabmSLkB5Ykoisgpbt8TR8Vnnbodq7w."
+
+- name: wachtwoord wijzigen van user oracle
+  user: name=oracle password="$6$fZ0ixwOc$2Z1vuxB3uhgOY/g6a.0.Y5cmMkJmc75w7RaD/YlpJIOvhzzMEAuCQiQFsFlWmF.prYse/UsGXasg9re2ooWmK0"
+
+#
+# public keys plaatsen
+#
+
+- name: voeg public keys toe aan authorized_key file van root op de remote host
+  authorized_key: user=root state=present key="{{ lookup('file', item) }}" 
+  with_fileglob:
+     - public_ssh_keys/*.pub
+
+- name: voeg public keys toe aan authorized_key file van oracle op de remote host
+  authorized_key: user=oracle state=present key="{{ lookup('file', item) }}" 
+  with_fileglob:
+     - public_ssh_keys/*.pub
+
+#
+# tmpfs aanpassen
+#
+
+- name: stel grootte in van tmpfs
+  mount: name=/dev/shm src=tmpfs fstype=tmpfs opts="size={{ (ansible_memtotal_mb-4000)|int|abs }}m" state=mounted
+
+#
+# backup en beheer directories aanmaken
+#
+
+- name: maak directory met hostname op de backuptarget
+  file: path=/mnt/nfs_autofs/backup/{{ ansible_hostname }} state=directory owner=oracle group=oinstall mode=0755
+
+- name: maak symbolic link voor backup directory
+  file: src=/mnt/nfs_autofs/backup/{{ ansible_hostname }} dest=/backup state=link owner=oracle group=oinstall
+
+- name: maak directories voor de backups
+  file: path={{ item }} state=directory owner=oracle group=oinstall mode=0755
+  with_items:
+    - "/backup/export"
+    - "/backup/rman/backups"
+    - "/backup/rman/logs"
+    - "/backup/rman/snapshot_controlfile"
+
+- file: path="/backup/rman/backups/snapcf" state=absent
+
+- name: maak beheer directory in de homedir van user oracle
+  file: path=/home/oracle/beheer state=directory owner=oracle group=oinstall mode=0755
+
+- name: maak symbolic link voor de beheer directory
+  file: src=/home/oracle/beheer dest=/beheer state=link owner=oracle group=oinstall
+
+- name: maak directories voor de beheer scripts, logs en passwords
+  file: path={{ item }} state=directory owner=oracle group=oinstall mode=0755
+  with_items:
+    - "{{ beheer_scripts_dir }}"
+    - "{{ beheer_log_dir }}"
+    - "{{ beheer_password_dir }}"
+
+#
+# beheer scripts plaatsen en bijbehorende cron jobs aanmaken
+#
+
+- name: plaats scripts
+  copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=oinstall mode=0700
+  with_items:
+    - backup_database.sh
+    - backup_all_databases.sh
+    - remove_old_files.sh
+    - asm_lsdg.sh
+    - asm_processes.sh
+    - set_passwd_all_databases.sh
+    - archivelog.sh
+    - noarchivelog.sh
+    - export_dp_database.sh
+    - asmiostat.sh
+    - stats_utlrp.sh
+    - tail_ohasd_log.sh
+    - utlrp_all_databases.sh
+    - watch_procs_smon.sh
+    - reset_management_packs.sh
+    - create_alertlog_view_synonym_grant_nagios.sh
+    - invalid_objects.sh
+    - cleanup_audittrail_table_all_databases.sh
+    - set_dp_dir_all_databases.sh 
+#
+# cronjobs aanmaken in crontab van user oracle
+#
+
+- name: maak cron jobs voor beheer scripts
+  cron: 
+    name: "{{ item.cron_description }}"
+    minute: "{{ item.minute }}"
+    hour: "{{ item.hour }}"
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/{{ item.script_name }}.sh > {{ beheer_log_dir }}/{{ item.script_name }}.log 2>&1"
+  with_items:
+    - { minute: 00, hour: 02, script_name: remove_old_files,                       cron_description: opschonen logfiles en tracefiles }
+    - { minute: 30, hour: 05, script_name: set_passwd_all_databases,               cron_description: wachtwoorden van alle databases aanpassen }
+    - { minute: 30, hour: 23, script_name: backup_all_databases,                   cron_description: alle databases backuppen met RMAN }
+    - { minute: 30, hour: 23, script_name: set_dp_dir_all_databases,               cron_description: reset datapump dir naar default waarde }
+    - { minute: 00, hour: 07, script_name: cleanup_audittrail_table_all_databases, cron_description: audit trail tabel van alle databases opschonen }
+
+- name: maak cron jobs voor beheer scripts - asm info voor nagios
+  cron: 
+    name: "{{ item.cron_description }}"
+    minute: "{{ item.minute }}"
+    hour: "{{ item.hour }}"
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/{{ item.script_name }}.sh > /tmp/{{ item.script_name }}.log 2>&1"
+  with_items:
+    - { minute: "0,30", hour: "*", script_name: asm_lsdg,           cron_description: asm list diskgroups opvragen voor nagios }
+    - { minute: "0", hour: "0,6,12,18", script_name: asm_processes, cron_description: asm processes opvragen voor nagios }
+  when: ansible_hostname != "oem"
+
+#
+# plaats wachtwoord bestanden
+#
+
+- name: plaats wachtwoord bestanden
+  copy: src=files/{{ item }} dest={{ beheer_password_dir }}/{{ item }} owner=oracle group=oinstall mode=0600
+  with_items:
+    - sys.pw
+    - system.pw
+
+#
+# reset control management pack access
+#
+
+- name: maak cron job voor reset control management pack access DIAGNOSTIC+TUNING
+
+  cron: 
+    name: reset Oracle management pack access
+    minute: 0
+    hour: 5
+    weekday: 5
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/reset_management_packs.sh DIAGNOSTIC+TUNING > {{ beheer_log_dir }}/reset_management_packs.log 2>&1"
+  when: "'diagnostic_tuning_pack' in group_names"
+  
+- name: maak cron job voor reset control management pack access NONE
+  cron: 
+    name: reset Oracle management pack access
+    minute: 0
+    hour: 5
+    weekday: 5
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/reset_management_packs.sh NONE > {{ beheer_log_dir }}/reset_management_packs.log 2>&1"
+  when: "'diagnostic_tuning_pack' not in group_names"
+
+#
+# pdds0340 export burgers uit Key2Datadistributie t.b.v. Mozard
+#
+
+- name: pdds0340 export burgers uit Key2Datadistributie t.b.v. Mozard
+  block:
+    - name: plaats wachtwoord bestand
+      copy: src=files/{{ item }} dest={{ beheer_password_dir }}/{{ item }} owner=oracle group=oinstall mode=0600
+      with_items:
+        - pdds0340_proddds.pw
+
+    - name: plaats scripts dds_prs_mozard_rhenen.sql en dds_prs_mozard_rhenen.sh
+      copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=oinstall mode=0700
+      with_items:
+        - dds_prs_mozard_rhenen.sql
+        - dds_prs_mozard_rhenen.sh
+
+    - name: maak cron job voor dds_prs_mozard_rhenen.sh
+      cron: 
+        name: Dagelijks burgers exporteren vanuit Key2Datadistributie naar ETL map voor Mozard
+        minute: 0
+        hour: 21
+        user: oracle
+        job: "/beheer/scripts/dds_prs_mozard_rhenen.sh > /dev/null 2>&1"
+  when: ansible_hostname == "rhn-db04"
+
+#
+# pgis0340 statistieken en utlrp
+#
+
+- name: maak cron job voor stats_utlrp.sh
+  cron: 
+    name: statistieken draaien voor {{ item }}
+    minute: 0
+    hour: 8
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/stats_utlrp.sh {{ item }} > {{ beheer_log_dir }}/stats_utlrp_{{ item }}.log 2>&1'"
+  with_items:
+    - pgis0340
+  when: ansible_hostname == "rhn-db06"
+
+#
+# pgis0345 en pgdw0345 statistieken en utlrp
+#
+
+- name: maak cron job voor stats_utlrp.sh
+  cron: 
+    name: statistieken draaien voor {{ item }}
+    minute: 0
+    hour: 8
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/stats_utlrp.sh {{ item }} > {{ beheer_log_dir }}/stats_utlrp_{{ item }}.log 2>&1'"
+  with_items:
+    - pgis0345
+    - pgdw0345
+  when: ansible_hostname == "vnd-db06"
+
+#
+# mozard/verseon monitor Oracle Text ctxhx proces
+#
+
+- name: mozard/verseon monitor ctxhx proces
+  block:
+    - name: plaats script monitor_ctxhx_proces.sh
+      copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=oinstall mode=0700
+      with_items:
+        - monitor_ctxhx_proces.sh
+
+    - name: maak cron job voor monitor_ctxhx_proces.sh
+      cron: 
+        name: Monitor Oracle Text ctxhx proces en automatisch killen als hij langer dan 10min actief is.
+        minute: "*/5"
+        user: oracle
+        job: "{{ beheer_scripts_dir }}/monitor_ctxhx_proces.sh > /dev/null 2>&1"
+  when: "'mozard_verseon_oracle-text' in group_names"
+  tags: ctxhx
+
+#
+# pgws datapump export t.b.v. pgws2tgws
+#
+
+- name: maak cron job voor datapump export database pgws
+  cron: 
+    name: database pgws exporteren met datapump
+    minute: 0
+    hour: 23
+    user: oracle
+    job: "{{ beheer_scripts_dir }}/export_dp_database.sh pgws > /dev/null 2>&1"
+  when: ansible_hostname == "vnd-db04"
+  tags: pgws2tgws
+
+#
+# pgws2tgws import
+#
+
+- name: pgws2tgws import
+  block:
+    - name: plaats wachtwoord bestand
+      copy: src=files/{{ item }} dest={{ beheer_password_dir }}/{{ item }} owner=oracle group=oinstall mode=0600
+      with_items:
+        - tgws_test.pw
+        - tgws_pkocasus.pw
+        - tgws_pkoeb.pw
+
+    - name: plaats scripts voor pgws2tgws import
+      copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=oinstall mode=0700
+      with_items:
+        - pgws2tgws.sh
+        - pgws2tgws_sqlloader.sh
+        - pgws2tgws_sqlloader.ctl
+
+    - name: maak cron job voor pgws2tgws.sh
+      cron: 
+        name: Importeer PGWS in TGWS op woensdag en vrijdag pgws2tgws
+        minute: 0
+        hour: 4
+        weekday: 3,5
+        user: oracle
+        job: "{{ beheer_scripts_dir }}/pgws2tgws.sh > {{ beheer_log_dir }}/pgws2tgws.log 2>&1"
+
+    - name: maak cron job voor pgws2tgws_sqlloader.sh
+      cron: 
+        name: Importeer PGWS in TGWS op woensdag en vrijdag pgws2tgws_sqlloader
+        minute: 30
+        hour: 6
+        weekday: 3,5
+        user: oracle
+        job: "{{ beheer_scripts_dir }}/pgws2tgws_sqlloader.sh > {{ beheer_log_dir }}/pgws2tgws_sqlloader_cron.log 2>&1"
+  when: ansible_hostname == "vnd-db03"
+  tags: pgws2tgws
+
+#
+# pwmo datapump export t.b.v. pwmo2twmo
+#
+
+- name: maak cron job voor export_dp_pwmo_database.sh
+  cron: name="database pwmo exporteren met datapump" minute="0" hour="23"
+        job="su - oracle -c '{{ beheer_scripts_dir }}/export_dp_database.sh pwmo > /dev/null 2>&1'"
+  when: ansible_hostname == "vnd-db08"
+  tags: pwmo2twmo
+
+#
+# pwmo2twmo import
+#
+
+- name: pwmo2twmo import
+  block:
+    - name: plaats wachtwoord bestand
+      copy: src=files/{{ item }} dest={{ beheer_password_dir }}/{{ item }} owner=oracle group=oinstall mode=0600
+      with_items:
+        - twmo_wmoned.pw
+
+    - name: plaats scripts voor pwmo2twmo import
+      copy: src=files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=oinstall mode=0700
+      with_items:
+        - pwmo2twmo.sh
+        - pwmo2twmo_sqlloader.sh
+        - pwmo2twmo_sqlloader.ctl
+
+    - name: maak cron job voor pwmo2twmo.sh
+      cron: 
+        name: Importeer PWMO in TWMO op woensdag en vrijdag pwmo2twmo
+        minute: 0
+        hour: 4
+        weekday: 3,5
+        user: oracle
+        job: "{{ beheer_scripts_dir }}/pwmo2twmo.sh > {{ beheer_log_dir }}/pwmo2twmo.log 2>&1"
+
+    - name: maak cron job voor pwmo2twmo_sqlloader.sh
+      cron: 
+        name: Importeer PWMO in TWMO op woensdag en vrijdag pwmo2twmo_sqlloader
+        minute: 30
+        hour: 6
+        weekday: 3,5
+        user: oracle
+        job: "{{ beheer_scripts_dir }}/pwmo2twmo_sqlloader.sh > {{ beheer_log_dir }}/pwmo2twmo_sqlloader_cron.log 2>&1"
+  when: ansible_hostname == "vnd-db07"
+  tags: pwmo2twmo

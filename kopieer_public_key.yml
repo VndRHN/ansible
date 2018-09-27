@@ -1,0 +1,9 @@
+---
+- name: kopieer public key naar remote host
+  hosts: all
+  gather_facts: yes
+
+  tasks:
+    - name: voeg public key toe aan authorized_key file van root op de remote host
+      authorized_key: user=root state=present key="{{ lookup('file','~/.ssh/id_rsa.pub') }}" 
+

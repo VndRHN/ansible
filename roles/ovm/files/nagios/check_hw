@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ -z "`find /var/run/check_hw.err -mmin -60 2>/dev/null`" ]
+then
+	if [ -z "`find /var/run/check_hw.err -mtime -1 2>/dev/null`" ]
+	then
+		echo "HARDWARE CRITICAL: status more than 1 day old"
+		exit 2
+	fi
+	echo "HARDWARE WARNING: status more than 1 hour old"
+	exit 1
+fi
+if [ -s /var/run/check_hw.err ]
+then
+	echo "HARDWARE CRITICAL:" `head -4 /var/run/check_hw.err |tr '|' :`
+	exit 2
+fi
+echo "HARDWARE OK:" `cat /var/run/check_hw.ok`
+exit 0

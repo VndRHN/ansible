@@ -1,0 +1,26 @@
+---
+- name: verwijder schedule reboot
+  hosts: oracle_database_servers
+  tasks:
+    - name: verwijder cron job voor herstart database
+      cron: name="herstart db" state=absent
+
+- name: schedule reboot
+  hosts: vnd-db05 
+  vars:
+    beheer_scripts_dir: /beheer/scripts
+    beheer_log_dir: /beheer/log
+    dag: 11
+    maand: 05
+    sid: 12345
+  tasks:
+    - name: plaats script
+      copy: src=roles/database/files/{{ item }} dest={{ beheer_scripts_dir }}/{{ item }} owner=oracle group=oinstall mode=0700
+      with_items:
+        - herstart_database.sh 
+
+    - name: maak cron job voor herstart db 
+      cron: name="herstart db" minute="45" hour="04" day={{ dag }} month={{ maand }}
+            user=oracle
+            job="{{ beheer_scripts_dir }}/herstart_database.sh {{ sid }} > {{ beheer_log_dir }}/herstart_server.log 2>&1"
+

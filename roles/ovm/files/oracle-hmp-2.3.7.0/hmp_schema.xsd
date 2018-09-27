@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="hmp_manifest">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="supported_os">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element minOccurs="1" maxOccurs="unbounded" name="os_id" type="xs:string">
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="package_groups">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element minOccurs="0" maxOccurs="unbounded" name="group">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="name" type="xs:string" />
+                    <xs:element minOccurs="0" maxOccurs="unbounded" name="package">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="pkg_name" type="xs:string">
+                          </xs:element>
+                          <xs:element minOccurs="0" maxOccurs="1" name="md5sum" type="xs:string">
+                          </xs:element>
+                          <xs:element minOccurs="0" maxOccurs="1" name="contents" type="xs:string">
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="hmp_version" type="xs:string" />
+      <xs:attribute name="svn_revision" type="xs:string" />
+      <xs:attribute name="schemaVersion" type="xs:string" />
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
+

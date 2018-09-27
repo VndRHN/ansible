@@ -1,0 +1,76 @@
+---
+- name: install database software
+  become: yes
+  become_user: oracle
+  command: >
+    {{ installatie_bron }}/oracle/db_{{ oracle_version }}/database/runInstaller -silent -force -waitforcompletion -ignoresysprereqs 
+      ORACLE_HOSTNAME={{ ansible_hostname }}
+      UNIX_GROUP_NAME=oinstall
+      INVENTORY_LOCATION=/u01/app/oraInventory
+      ORACLE_BASE=/u01/app/oracle
+      ORACLE_HOME={{ database_home }}
+      SELECTED_LANGUAGES=en
+      DECLINE_SECURITY_UPDATES=true
+      oracle.install.option=INSTALL_DB_SWONLY
+      oracle.install.db.InstallEdition={{ oracle_edition }}
+      oracle.install.db.EEOptionsSelection=true
+      oracle.install.db.optionalComponents=
+      oracle.install.db.DBA_GROUP=dba
+    creates={{ database_home }}/install/envVars.properties
+  register: install_result
+  failed_when: ( install_result.rc not in [ 0, 6, 250 ] )
+
+- name: general oracle post-installation
+  command: >
+    {{ database_home }}/root.sh
+    creates={{ database_home }}/install/root_{{ ansible_hostname }}_*.log
+
+- name: logrotate config plaatsen voor voor listener.log, wekelijks rotaten, vier keer bewaren
+  template: src=oracle-listener.j2 dest=/etc/logrotate.d/oracle-listener owner=root group=root mode=0644
+
+- name: plaats dbca database templates
+  copy: src={{ oracle_version }}/{{ item }} dest={{ database_home }}/assistants/dbca/templates/{{ item }} owner=oracle group=oinstall mode=0644
+  with_items:
+    - db11.dbt
+    - centric.dbt
+  when: ansible_hostname != "oem"
+
+- name: Add EPEL repository voor rlwrap
+  yum_repository:
+    name: epel
+    description: EPEL YUM repo
+    baseurl: https://dl.fedoraproject.org/pub/epel/$releasever/$basearch/
+    enabled: yes
+    gpgkey: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}
+    gpgcheck: yes
+
+- name: installeer rlwrap vanuit epel repository
+  yum: name=rlwrap state=present
+
+- name: vul bash_profile aan van user oracle
+  become: yes
+  become_user: oracle
+  blockinfile:
+    dest: ~/.bash_profile
+    backup: yes
+    block: |
+      export ORACLE_BASE=/u01/app/oracle
+      export ORACLE_HOME={{ database_home }}
+      export PATH=$PATH:/beheer/scripts
+      export PATH=$PATH:$ORACLE_HOME/bin
+      
+      export so=/beheer/scripts
+      export ex=/backup/export
+      export exp=/backup/export/par
+      export im=/backup/import
+      export imp=/backup/import/par
+      export rb=/backup/rman/backups
+      export rl=/backup/rman/logs
+
+      alias sqlplus="rlwrap --pass-sigint-as-sigterm sqlplus"
+      alias dgmgrl="rlwrap --pass-sigint-as-sigterm dgmgrl"
+      alias rman="rlwrap --pass-sigint-as-sigterm rman"
+      alias lsnrctl="rlwrap --pass-sigint-as-sigterm lsnrctl"
+      alias asmcmd="rlwrap --pass-sigint-as-sigterm asmcmd"
+      alias adrci="rlwrap --pass-sigint-as-sigterm adrci"
+      alias impdp="rlwrap --pass-sigint-as-sigterm impdp"

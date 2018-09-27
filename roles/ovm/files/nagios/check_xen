@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+#
+# script must be run as root, there is no sudo on ovm servers, so use a cronjob like:
+#
+#  */5 * * * * /etc/local/run_jobres /etc/local/check_xen >/dev/null 2>&1
+#
+# and check from nagios with:
+#
+#  command[check_xen]=/etc/local/check_jobres check_xen
+
+
+$ENV{PATH} = "/usr/bin:/usr/sbin:/bin:/sbin";
+
+chomp(my @xminfo = `xm info 2>&1`);
+
+for (@xminfo) {
+	if (/^(\w+)_memory\s+: (\d+)/) {
+		$mem{$1} = $2;
+	}
+}
+if (!$mem{total}) {
+	printf "XEN CRITICAL - %.400s\n", join(" ", @xminfo);
+	exit(2);
+}
+my $memfree = 100 * $mem{free} / $mem{total};
+my $msg = "OK";
+if ($memfree < $min_mem) {
+	$msg = "WARNING";
+	$rc = 1;
+}
+
+
+chomp(my @xmlist = `xm list`);
+
+
+for (`grep OVM_simple_name /OVS/Repositories/*/VirtualMachines/*/vm.cfg 2>/dev/null`) {
+	if (m,/(\w+)/vm.cfg:OVM_simple_name = '([^']+),) {
+		$hex2name{$1} = $2;
+	}
+}
+
+printf "XEN %s - %d%% Mem Free, %d domU:", $msg, $memfree, $#xmlist - 1;
+for (@xmlist) {
+	/^(Domain-0|Name)/ && next;
+	($name,$id,$mem,$vcpu,$state,$time) = split;
+	$state =~ s/[-b]//g;
+	printf " %s", $hex2name{$name} || $name;
+	if ($state) {
+		printf "(%s)", $state;
+	}
+}
+printf "| memfree=%d\n", $memfree;
+
+exit($rc);

@@ -1,0 +1,19 @@
+---
+- name: scripts voor webtier servers
+  hosts: oracle_webtier_servers
+  remote_user: root
+  gather_facts: yes
+  roles:
+    - common
+    - webtier
+
+  tasks:
+    - name: voeg public keys toe aan authorized_key file van root op de remote host
+      authorized_key: user=root state=present key="{{ lookup('file', item) }}"     #"
+      with_fileglob:
+         - public_ssh_keys/*.pub
+
+    - name: voeg public keys toe aan authorized_key file van oracle op de remote host
+      authorized_key: user=oracle state=present key="{{ lookup('file', item) }}"     #"
+      with_fileglob:
+         - public_ssh_keys/*.pub

@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# script should be used in combination with run_jobres
+#
+# check_jobres	should be called from nrpe and can run as nagios user
+# run_jobres	should be run from cron as root
+#
+# check_jobres displays the result from the cronjob and checks if the
+# status is up-to-date.
+#
+
+
+case $1 in
+	[a-z]*) name=$1 ;;
+	/*) name=`basename $1` ;;
+	*) echo "usage: $0 SCRIPT_NAME" ; exit 1 ;;
+esac
+
+stat_file=/var/run/jobr-$1
+
+
+if [ -z "`find $stat_file.res -size +0 -mmin -60 2>/dev/null`" ]
+then
+	if [ -z "`find $stat_file.res -size +0 -mtime -1 2>/dev/null`" ]
+	then
+		echo "$name CRITICAL: status more than 1 day old"
+		exit 2
+	fi
+	echo "$name WARNING: status more than 1 hour old"
+	exit 1
+fi
+res=`cat $stat_file.res`
+cat $stat_file.out
+exit $res
+

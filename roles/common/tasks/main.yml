@@ -1,0 +1,4 @@
+---
+# tasks file for common
+- include_tasks: vi_customization.yml
+- include_tasks: bash_customization.yml

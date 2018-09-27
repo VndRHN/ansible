@@ -1,0 +1,159 @@
+---
+- name: firewall uitschakelen
+  service: name={{ item }} state=stopped enabled=no
+  with_items:
+    - iptables
+    - ip6tables
+
+- name: installeer pakket afhankelijkheden
+  yum: name={{ item }} state=present
+  with_items:
+    - binutils
+    - compat-libcap1
+    - compat-libstdc++-33
+    - compat-libstdc++-33.i686
+    - gcc
+    - gcc-c++
+    - glibc
+    - glibc-devel
+    - glibc-devel.i686
+    - glibc.i686
+    - ksh
+    - libXext.i686
+    - libXtst.i686
+    - libaio
+    - libaio-devel
+    - libgcc
+    - libstdc++
+    - libstdc++-devel
+    - libstdc++.i686
+    - openmotif
+    - openmotif22
+    - redhat-lsb
+    - sysstat
+    - xdpyinfo
+
+- name: groep dba aanmaken
+  group: name=dba state=present
+
+# grep ora11gas /etc/shadow | cut -d: -f2
+
+- name: gebruiker ora11gas aanmaken
+  # user: name=ora11gas group=dba password="$1$nrdJaN0W$LSUjxUMLCLKFZVnhq0hJg/"
+  user: name=ora11gas group=dba password="$6$fZ0ixwOc$2Z1vuxB3uhgOY/g6a.0.Y5cmMkJmc75w7RaD/YlpJIOvhzzMEAuCQiQFsFlWmF.prYse/UsGXasg9re2ooWmK0"
+
+- name: maak applicatie directories
+  file: path={{ item }} state=directory owner=ora11gas group=dba
+  with_items:
+    - /u01/app/oracle
+    - /u01/app/oracle/middleware
+    - /u01/app/oracle/middleware/logs
+    - /u01/app/centric
+
+- name: voer script prepareoracle.11gasr2.sh uit
+  shell: >
+    /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/prepareoracle.11gasr2.sh -w | tee /u01/app/oracle/middleware/logs/CENTRIC_prepareoracle.log
+    creates=/etc/sysctl.old
+  ignore_errors: yes
+
+- name: Centric bash prompt (PS1) verwijderen uit profile ora11gas
+  lineinfile:
+    dest: /home/ora11gas/.bash_profile
+    regexp: "{{ item.regexp }}"
+    state: absent
+  with_items:
+    - { regexp: '^export PS1' }
+    - { regexp: '^\\\$PWD ' }
+
+- name: java jdk uitpakken
+  unarchive:
+    src: /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/jdk-7u55-linux-x64_met_subdir_java.tgz
+    dest: /u01/app/oracle
+    copy: no
+    creates: /u01/app/oracle/java/release
+  become: yes
+  become_user: ora11gas
+
+- name: installeer Oracle Weblogic
+  become: yes
+  become_user: ora11gas
+  command: >
+    /u01/app/oracle/java/bin/java -d64 -jar /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/wls1036_generic.jar -log=/u01/app/oracle/middleware/logs/WEBLOGIC_silent.log -mode=silent -silent_xml=/mnt/nfs_autofs/software/oracle/wls_11.1.2.2/WEBLOGIC_silent.xml
+    creates=/u01/app/oracle/middleware/logs/log.txt
+
+- name: Oracle Inventory aanmaken
+  command: >
+    /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/Disk1/stage/Response/createCentralInventory.sh /u01/app/oracle/oraInventory dba
+    creates=/u01/app/oracle/oraInventory
+
+- name: plaats responsefile voor de forms installatie
+  become: yes
+  become_user: ora11gas
+  template: src=forms_silent.rsp.j2 dest=/home/ora11gas/forms_silent.rsp
+
+- name: installeer Oracle Forms en Reports
+  command: >
+    /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/Disk1/runInstaller -silent -waitforcompletion -force -ignoreSysPrereqs -responseFile /home/ora11gas/forms_silent.rsp
+    creates=/u01/app/oracle/middleware/fr_binaries/install/envVars.properties
+  become: yes
+  become_user: ora11gas
+
+- name: voer script Forms_111220_Nabewerkingen.pl uit
+  shell: >
+    perl /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/Forms_111220_Nabewerkingen.pl | tee /u01/app/oracle/middleware/logs/CENTRIC_Forms_111220_Nabewerkingen.log
+    creates=/u01/app/oracle/middleware/user_projects/domains/frdomain/servers/AdminServer/security/boot.properties
+  become: yes
+  become_user: ora11gas
+
+- name: patch 18277370 uitpakken
+  unarchive:
+    src: /mnt/nfs_autofs/software/oracle/wls_11.1.2.2/18277370.zip
+    dest: /u01/app/oracle/middleware/oracle_common
+    copy: no
+    creates: /u01/app/oracle/middleware/oracle_common/18277370
+  become: yes
+  become_user: ora11gas
+
+- name: patch 18277370 installeren
+  shell: >
+    /u01/app/oracle/middleware/oracle_common/OPatch/opatch apply -silent | tee /u01/app/oracle/middleware/logs/opatch_18277370.log
+    chdir=/u01/app/oracle/middleware/oracle_common/18277370
+    creates=/u01/app/oracle/middleware/logs/opatch_18277370.log
+  become: yes
+  become_user: ora11gas
+  environment:
+    ORACLE_HOME: /u01/app/oracle/middleware/oracle_common
+
+- name: plaats aangepast nodemanager init script
+  copy: src=files/nodemanager dest=/etc/init.d mode=0755
+
+- name: start service nodemanager
+  service: name=nodemanager state=started
+
+- name: wacht op opengaan van poort 8888
+  wait_for: port=8888
+
+- name: voer script centric_firststartup uit
+  shell: >
+    /u01/app/oracle/middleware/centric_firststartup.sh | tee /u01/app/oracle/middleware/logs/CENTRIC_centric_firststartup.log
+    chdir=/u01/app/oracle/middleware
+    creates=/u01/app/oracle/middleware/logs/CENTRIC_centric_firststartup.log
+  become: yes
+  become_user: ora11gas
+  notify: herstart nodemanager
+
+#
+# Onderstaande acties zijn voor het plaatsen van programmatuur voor het automatisch aanmaken van de Centric forms omgevingen
+#
+
+- name: package expect installeren
+  yum: name=expect state=present
+
+- name: directorie /home/ora11gas/bin aanmaken
+  file: path=/home/ora11gas/bin state=directory owner=ora11gas group=dba
+
+- name: forms create scripts plaatsen
+  copy: src=files/{{ item }} dest=/home/ora11gas/bin/{{ item }} mode=0700 owner=ora11gas group=dba
+  with_items:
+    - alle_centric_forms_apps_aanmaken.sh
+    - create_centric_application.sh
