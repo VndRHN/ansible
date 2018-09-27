@@ -149,7 +149,7 @@
       oracle.install.crs.config.ignoreDownNodes=false
       oracle.install.config.managementOption=NONE
       oracle.install.config.omsPort=0
-      oracle.install.crs.rootconfig.executeRootScript=false
+      oracle.install.crs.rootconfig.executeRootScript=true
 
 - name: install grid software
   become: yes
