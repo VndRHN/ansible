@@ -97,4 +97,4 @@ vnd-db04
 # vnd-12 ansible_ssh_host=172.16.40.115
 #vnd-db11 ansible_ssh_host=172.16.3.42
 vnd-db17 ansible_ssh_host=172.16.3.157 oracle_edition=SE
-rwd-db13 ansible_ssh_host=172.16.3.153 oracle_edition=SE
+rwd-db13 ansible_ssh_host=172.16.3.173 oracle_edition=SE
